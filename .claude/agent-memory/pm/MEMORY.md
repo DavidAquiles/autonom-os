@@ -1,0 +1,2 @@
+- [User profile — David](user_profile.md) — sole user; Spanish-speaking Colombian who writes asks in English; simplicity and zero cost are hard constraints.
+- [Autonom-OS project](project_autonom_os.md) — personal Finances/Gym/Journal tracker; capture friction is the real problem; zero-cost is a requirement, not a preference.

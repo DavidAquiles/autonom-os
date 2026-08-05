@@ -1,0 +1,133 @@
+{
+  "schema_version": 2,
+  "project_path": "/home/david/Proyectos/Autonom-OS",
+  "factory_tools": "/home/david/Proyectos/software_factory/tools",
+  "mode": "greenfield",
+  "has_frontend": true,
+  "stage": "pm",
+  "gates_passed": [],
+  "index": {
+    "head": null,
+    "built_at": null,
+    "packs_built_head": null
+  },
+  "environment_verified": {
+    "at": "2026-08-05T23:06:45+00:00",
+    "profiles": [
+      "core",
+      "node",
+      "python",
+      "visual"
+    ],
+    "results": {
+      "git": {
+        "present": true,
+        "version": "git version 2.53.0",
+        "reason": null,
+        "profile": "core",
+        "required": true,
+        "why": "state lives in git (Principle 2)"
+      },
+      "python3": {
+        "present": true,
+        "version": "Python 3.14.4",
+        "reason": null,
+        "profile": "core",
+        "required": true,
+        "why": "the factory's tools are stdlib Python"
+      },
+      "node": {
+        "present": true,
+        "version": "v24.18.1",
+        "reason": null,
+        "profile": "node",
+        "required": true,
+        "why": "frontend build"
+      },
+      "npm": {
+        "present": true,
+        "version": "11.16.0",
+        "reason": null,
+        "profile": "node",
+        "required": true,
+        "why": "frontend dependency install"
+      },
+      "pip": {
+        "present": true,
+        "version": "pip 25.1.1 from /usr/lib/python3/dist-packages/pip (python 3.14)",
+        "reason": null,
+        "profile": "python",
+        "required": true,
+        "why": "dependency install"
+      },
+      "pytest": {
+        "present": false,
+        "version": null,
+        "reason": "exit 1: /usr/bin/python3: No module named pytest",
+        "profile": "python",
+        "required": false,
+        "why": "QA runs the suite; absence means unit gates are unverifiable"
+      },
+      "chromium": {
+        "present": true,
+        "version": "Chromium 150.0.7871.128 snap",
+        "reason": null,
+        "profile": "visual",
+        "required": false,
+        "why": "visual verification"
+      },
+      "chromium-browser": {
+        "present": true,
+        "version": "Chromium 150.0.7871.128 snap",
+        "reason": null,
+        "profile": "visual",
+        "required": false,
+        "why": "visual verification"
+      },
+      "google-chrome": {
+        "present": false,
+        "version": null,
+        "reason": "google-chrome not on PATH",
+        "profile": "visual",
+        "required": false,
+        "why": "visual verification"
+      },
+      "playwright": {
+        "present": false,
+        "version": null,
+        "reason": "exit 1: /usr/bin/python3: No module named playwright",
+        "profile": "visual",
+        "required": false,
+        "why": "drives the browser for screenshots"
+      }
+    },
+    "visual_capable": true,
+    "missing_required": []
+  },
+  "verification": {},
+  "loops": {
+    "review_impl": 0,
+    "qa_impl": 0
+  },
+  "caps": {
+    "review_impl": 3,
+    "qa_impl": 3
+  },
+  "agents": {},
+  "baseline_revision": "247f6b044c77ac0832175b61e2bb5b38c863ac00",
+  "blockers": [],
+  "deferred": [],
+  "history": [
+    {
+      "stage": "intake",
+      "at": "2026-08-05T23:06:28+00:00",
+      "note": "run created (greenfield)"
+    },
+    {
+      "stage": "pm",
+      "at": "2026-08-05T23:07:07+00:00",
+      "note": "stage intake -> pm"
+    }
+  ],
+  "updated_at": "2026-08-05T23:07:07+00:00"
+}

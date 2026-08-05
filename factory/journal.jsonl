@@ -1,0 +1,1 @@
+{"at": "2026-08-05T23:07:10+00:00", "schema_version": 1, "event": "run_start", "role": "orchestrator", "note": "greenfield Autonom-OS; preflight OK, visual_capable=yes via chromium; screenshots must be under project or $HOME, never /tmp (sandboxed browser)"}
