@@ -9,10 +9,17 @@ implementer's craft.
 
 ## Visual Intent
 
-One person, on his own phone, usually standing up and usually in a hurry, opening
-this app to put something down before he forgets it. Everything visual should
-serve that moment. The app should feel like reaching for a **notebook you already
-own** — familiar, quiet, no ceremony — rather than logging into a system.
+One person, on his own phone, usually standing up and usually in a hurry — often
+outdoors, on the street, one-handed, on mobile data — opening this app to put
+something down before he forgets it. Everything visual should serve that moment.
+The app should feel like reaching for a **notebook you already own** — familiar,
+quiet, no ceremony — rather than logging into a system.
+
+One condition shapes the design more than it looks like it should: the AI runs on
+the user's own PC with no GPU, so transcription takes seconds and an insight can
+take tens of seconds. **Waiting is a designed state here, not an edge case.** A
+wait that looks alive and calm is the difference between "it's thinking" and "it's
+broken", and the app has no support channel to correct that impression.
 
 Two different feelings live inside one app and both matter:
 
@@ -86,8 +93,25 @@ Each of these is pass/fail against a real screen.
 21. Amounts everywhere are rendered in Colombian peso convention — `.` thousands
     separator, no cents — e.g. `$14.000`.
 22. Light mode only in this pass. No dark mode and no theme toggle in the UI.
-23. Interface language is Spanish throughout, with no mixed-language strings on
-    any screen. *(Depends on Assumption A3 in the spec.)*
+23. Interface language is Spanish throughout — every label, button, error, empty
+    state, and placeholder — with no mixed-language strings on any screen.
+24. Spanish text renders correctly at every size and weight used, including
+    accented vowels, ñ, and the opening marks ¿ and ¡. No clipping, no substituted
+    glyphs, and no layout that breaks on the longer word lengths Spanish produces
+    compared to English.
+
+**Waiting and long-running work**
+25. Any wait that can exceed roughly two seconds — voice transcription, an insight
+    answer — shows progress that visibly changes over time. A static spinner that
+    could equally mean "hung" does not satisfy this.
+26. Any wait that can exceed roughly ten seconds — insight generation — presents a
+    visible way to cancel or leave, and says in plain language that the work is
+    happening on the user's own computer.
+27. The periodic summary surface distinguishes, on sight, between three states: a
+    summary ready to read, no summary yet produced, and a summary currently being
+    produced. None of the three renders as an empty area.
+28. No screen implies an instant AI response — no copy, animation, or affordance
+    that sets an expectation the local model cannot meet.
 
 ## Feel & Tone (guidance, not pass/fail)
 
@@ -101,6 +125,10 @@ Each of these is pass/fail against a real screen.
 - The month breakdown should read as a clear answer to "where did it go", not as
   a data visualisation exercise.
 - Journal screens noticeably quieter and roomier than Finances screens.
+- Waiting should feel patient rather than apologetic. The app is thinking on the
+  user's own machine; that is a feature of this design, not a failure to hide.
+  Avoid anxious language ("still working…", "sorry, this is slow") and avoid
+  fake-progress bars that imply a completion time nobody knows.
 
 **Avoid**
 - Dense dashboards, data grids, KPI card walls, sidebars.
@@ -138,5 +166,6 @@ does exactly what it says.
 None. The ask specifies the look with enough precision — clean, mostly white,
 violet, mobile-oriented — that the remaining decisions are the frontend's craft
 rather than the human's intent. Visual decisions I took rather than escalated are
-recorded as Assumptions A3 and A18 in `spec.md`; the three questions I am
-escalating are all functional.
+recorded as Assumptions A3, A4, A18, and A20 in `spec.md`. The three questions
+escalated at Kickoff were all functional and have been answered; nothing about the
+look is open.

@@ -1,8 +1,10 @@
 # Autonom-OS — Product Spec
 
-**Status: DRAFT pending three open questions (see § Open Questions).** Everything
-outside those three items is settled. Assumptions are the human's control surface
-at the Approve Plan gate — read § Assumptions before § Acceptance Criteria.
+**Status: FINAL.** Kickoff gate passed; all three escalated questions answered and
+folded in. Assumptions are the human's control surface — read § Assumptions
+before § Acceptance Criteria. Criterion numbers are stable and are cited by the
+Architect's Interface Contract, Reviewer findings, and QA results; retired
+criteria keep their numbers rather than being renumbered.
 
 ---
 
@@ -36,6 +38,33 @@ phone, against a server and database running on his own PC. There is no second
 user, no sharing, no roles, no audience. Product decisions should optimise for
 one person's speed and comfort, never for generality.
 
+## Decisions taken at the Kickoff gate
+
+Settled by the human; not open to reinterpretation downstream.
+
+- **Away-from-home use is required.** The app must work on mobile data, wherever
+  David is, so an expense can be captured the moment it happens. The PC is **not**
+  exposed to the public internet; the phone joins a private network with it. The
+  mechanism is the Architect's call and is deliberately absent from this spec.
+- **Everything stays local.** No audio, no journal text, no expense text, and no
+  derived data leaves the PC. No third-party transcription, no third-party LLM,
+  no accounts, no quotas — not even for short finance phrases.
+- **Insights are both on-demand and periodic.** David asks questions, *and* the
+  app produces a short summary on its own.
+- **Spanish.** All interface text in Spanish; voice recognition tuned for Spanish
+  specifically.
+
+**Measured host hardware** (fact, not estimate): 13 GB RAM (~6.7 GB available),
+8 CPU cores, integrated AMD Radeon Vega graphics with no dedicated GPU and no
+CUDA, 37 GB free disk.
+
+**The consequence David accepted before choosing:** on this hardware, local voice
+transcription runs comfortably, but the local LLM is **noticeably slower and
+lower quality than a cloud model**. Insight generation is expected to take
+seconds-to-tens-of-seconds, not to feel instant. This is written into the
+acceptance criteria below rather than left to be discovered at QA. No criterion in
+this spec should be read as requiring an instant AI response.
+
 ## Scope
 
 ### In scope (this pass)
@@ -46,8 +75,10 @@ one person's speed and comfort, never for generality.
 - **Journal** — free-text entries, dated, browsable by date.
 - **Gym** — a navigational placeholder only.
 - **Two input methods across modules** — voice and manual.
-- **LLM insights** over the user's own recorded data, at zero cost.
-- **Phone-first use** against a self-hosted server on the user's PC.
+- **LLM insights** over the user's own recorded data — on-demand questions and a
+  periodic summary — running entirely on the user's PC, at zero cost.
+- **Phone-first use, away from home**, against a self-hosted server on the user's
+  PC that is never publicly exposed.
 
 ### Out of scope (Non-Goals)
 
@@ -68,18 +99,20 @@ Concrete things this pass will explicitly not do:
    messages, streaks, badges, or gamification of any kind.
 7. **Rich journal content.** No photos, attachments, formatting/markdown
    rendering, tags, mood scores, or templates. Plain text only.
-8. **Journal search.** Entries are reached by date, not by query.
+8. **Journal search.** Entries are reached by date, not by query. (Asking the
+   insights capability about the journal is a different thing and is in scope.)
 9. **Any paid service, paid tier, trial that converts to paid, or dependency
    that requires payment details.** See Requirement 12.
-10. **A public/marketing surface.** No landing page, no sign-up flow, no docs
+10. **Any third-party processing of the user's data**, free tiers included. See
+    Requirement 15.
+11. **A public/marketing surface.** No landing page, no sign-up flow, no docs
     site, no app store listing.
+12. **A second interface language.** Spanish only; no language switcher, no
+    translation layer.
 
 ---
 
 ## Acceptance Criteria
-
-Numbers are stable. If a criterion is retired later, its number is retired with
-it rather than reused.
 
 ### Requirement 1 — App shell and navigation
 
@@ -99,6 +132,9 @@ so that capture never costs me navigation time.
 1.4 WHEN the user is anywhere in the app THEN the system SHALL make the two
     capture actions available for the current module — start voice capture, and
     open the manual form — without navigating away from the module.
+1.5 WHEN any text is shown anywhere in the interface THEN it SHALL be in Spanish,
+    with no untranslated or mixed-language strings on any screen, including
+    errors, empty states, and validation messages.
 
 ### Requirement 2 — Manual expense capture
 
@@ -139,7 +175,7 @@ that categorising costs no thought.
 
 3.1 WHEN the app is used for the first time with no data THEN the system SHALL
     already offer a non-empty starter set of spend categories and a non-empty
-    starter set of payment methods.
+    starter set of payment methods, named in Spanish.
 3.2 WHEN the user needs a category or payment method that does not exist THEN the
     system SHALL allow creating it from within the expense form, without
     abandoning the expense being entered.
@@ -218,6 +254,8 @@ anything about structure, so that writing stays effortless.
     SHALL save it in full and display it in full, with no silent truncation.
 6.6 WHEN the user submits a journal entry THEN the system SHALL require nothing
     beyond the text — no title, category, tag, or mood.
+6.7 WHEN a journal entry contains Spanish accented characters, ñ, or ¿¡ THEN the
+    system SHALL store and redisplay them unchanged.
 
 ### Requirement 7 — Journal browsing
 
@@ -254,6 +292,14 @@ costs nothing while I am walking down the street.
     working.
 8.6 WHEN anything is captured by voice THEN the system SHALL require an explicit
     user confirmation before it becomes a saved expense or journal entry.
+8.7 WHEN the user speaks in Colombian Spanish THEN the system SHALL transcribe it
+    as Spanish, including accented characters and ñ, and SHALL NOT translate it
+    into another language.
+8.8 WHEN voice capture ends THEN the system SHALL show a visible working state
+    within 1 second and SHALL present either a transcript or an explicit failure
+    within 30 seconds, for an utterance of up to 30 seconds of speech.
+8.9 WHEN transcription is in progress THEN the system SHALL allow the user to
+    abandon it and switch to the manual form without waiting for it to finish.
 
 ### Requirement 9 — Voice to expense
 
@@ -279,6 +325,10 @@ capture matches how I actually think about the spend.
 9.6 WHEN the spoken amount uses Latin-American spoken forms ("catorce mil",
     "14 mil", "14.000") THEN the system SHALL resolve it to the same numeric
     value for confirmation.
+9.7 WHEN the user names a payment method aloud in everyday Spanish ("con la
+    tarjeta de crédito", "en efectivo") THEN the system SHALL match it to one of
+    the user's existing payment methods, or leave the field empty per 9.2 if it
+    cannot.
 
 ### Requirement 10 — Voice to journal
 
@@ -297,12 +347,14 @@ that the journal stays mine.
 10.4 WHEN a voice journal entry is confirmed THEN it SHALL be indistinguishable
      from a typed entry in the journal list and equally editable.
 
-### Requirement 11 — Insights *(shape pending Q3 — see Open Questions)*
+### Requirement 11 — Insights
 
-As the only user, I want the record to tell me something I did not already know,
-so that keeping it is worth the effort.
+As the only user, I want the record to tell me something I did not already know —
+both when I ask and without my asking — so that keeping it is worth the effort.
 
 #### Acceptance Criteria
+
+**Shared behaviour**
 
 11.1 WHEN the system produces an insight THEN it SHALL be derived only from the
      user's own recorded expenses and journal entries, and SHALL NOT introduce
@@ -311,16 +363,56 @@ so that keeping it is worth the effort.
      can verify on the corresponding Finances screen.
 11.3 WHEN there is too little data to say anything THEN the system SHALL say so
      plainly rather than produce a generic or invented observation.
-11.4 WHEN the LLM is unavailable, quota-limited, or slow THEN every other part of
-     the app — capture, editing, viewing totals, journal — SHALL continue to work
-     normally, and the failure SHALL be visible and explained.
+11.4 WHEN the insights capability is unavailable, still loading, or failing THEN
+     every other part of the app — capture, editing, viewing totals, journal —
+     SHALL continue to work normally, and the failure SHALL be visible and
+     explained.
 11.5 WHEN an insight is being generated THEN the system SHALL show a visible
      in-progress state, and SHALL either return a result or an explicit failure.
 11.6 WHEN insights run THEN the system SHALL NOT create, modify, or delete any
      expense or journal entry as a result — insights are read-only.
+11.7 WHEN any insight text is produced THEN it SHALL be in Spanish.
 
-*(Further criteria under Requirement 11 will be added once Q3 fixes whether
-insights are user-asked, system-offered, or both.)*
+**On-demand questions**
+
+11.8 WHEN the user asks a question in Spanish about their finances — e.g. "¿cuánto
+     gasté en comida este mes?" — THEN the system SHALL answer from the user's own
+     recorded expenses for the period the question names.
+11.9 WHEN the user asks a question in Spanish about their journal — e.g. "¿qué me
+     preocupaba en julio?" — THEN the system SHALL answer from the user's own
+     journal entries for the period the question names.
+11.10 WHEN the user asks a question THEN the system SHALL accept it either typed
+      or by voice, using the same voice behaviour as Requirement 8.
+11.11 WHEN a question cannot be answered from the recorded data THEN the system
+      SHALL say that it cannot answer, and SHALL NOT fabricate a figure, a date,
+      or a quotation from an entry that does not exist.
+11.12 WHEN the user asks a question THEN the system SHALL show a working state
+      within 1 second, SHALL keep that state visibly alive (not a frozen spinner)
+      while it works, and SHALL return either an answer or an explicit failure
+      within 120 seconds.
+11.13 WHEN an answer is taking time to generate THEN the user SHALL be able to
+      cancel it and leave the screen, and doing so SHALL NOT affect any saved data.
+
+**Periodic summary**
+
+11.14 WHEN a period completes THEN the system SHALL produce, without the user
+      asking, a short written summary covering that period's spending and journal.
+11.15 WHEN the user opens the insights area THEN the most recent completed summary
+      SHALL be readable immediately, without waiting for anything to be generated
+      at that moment.
+11.16 WHEN a summary has never yet been produced, or the period contains no data
+      THEN the system SHALL show an explicit state saying so, rather than a blank
+      area or a fabricated summary.
+11.17 WHEN a summary is being produced THEN it SHALL NOT block, slow, or interrupt
+      expense capture, journal capture, or any view of the user's data.
+11.18 WHEN a summary is shown THEN it SHALL state which period it covers and when
+      it was produced.
+
+*(Note for QA, not a criterion: on the measured hardware the local model is
+expected to take seconds-to-tens-of-seconds. The 120-second bound in 11.12 and the
+"already produced" requirement in 11.15 exist because of that, and are the honest
+bar — a slow but bounded, visible, cancellable answer passes. A fast one is a
+bonus, not the requirement.)*
 
 ### Requirement 12 — Zero cost
 
@@ -332,19 +424,18 @@ does not become a subscription.
 12.1 WHEN the system is set up and used by one person for a year THEN it SHALL
      require no paid subscription, licence, metered service, or paid tier.
 12.2 WHEN the system is set up THEN it SHALL NOT require entering a credit card,
-     billing address, or any payment instrument at any step, including on third
-     parties it depends on.
-12.3 WHEN a free service the system depends on imposes a usage quota and that
-     quota is reached THEN the system SHALL surface a clear message naming the
-     limit, and SHALL NOT silently degrade and SHALL NOT auto-upgrade to a paid
-     tier.
-12.4 WHEN the system reaches a third-party quota THEN capture and viewing of the
-     user's own data SHALL remain fully functional.
+     billing address, or any payment instrument at any step, including on any
+     third party it depends on.
+12.3 *(Retired at the Kickoff gate — superseded by Requirement 15. With no
+     third-party services there are no third-party quotas to surface. Number
+     retired, not reused.)*
+12.4 WHEN the system runs THEN no functionality SHALL depend on a remote service
+     that could later begin charging, rate-limiting, or shutting down.
 
-### Requirement 13 — Reaching it from the phone *(access model pending Q1)*
+### Requirement 13 — Reaching it from the phone
 
-As the only user, I want the app on my phone to reach the server on my PC, so
-that the thing works where I actually am.
+As the only user, I want the app on my phone to reach the server on my PC from
+wherever I am, so that I can record the spend the moment I make it.
 
 #### Acceptance Criteria
 
@@ -356,9 +447,18 @@ that the thing works where I actually am.
 13.3 WHEN the user returns to the app after the server becomes reachable again
      THEN the system SHALL recover without the user reinstalling, clearing data,
      or losing anything previously saved.
-
-*(Whether the app must be reachable away from home, and what access control that
-implies, is Q1. Criteria for that will be added once answered.)*
+13.4 WHEN the user is away from home and on mobile data THEN the system SHALL be
+     fully usable — every capture, every view, and the insights capability behave
+     as they do at home.
+13.5 WHEN a save is attempted and the server cannot be reached THEN the system
+     SHALL keep the user's typed text or transcript on screen so it can be retried,
+     and SHALL NOT discard what the user just entered.
+13.6 WHEN the system is running THEN the server and the database on the PC SHALL
+     NOT be reachable from the public internet — only from the user's own private
+     network.
+13.7 WHEN the user has completed the one-time setup on their phone THEN routine
+     daily use SHALL require no additional connection step, login, or manual
+     action before capturing something.
 
 ### Requirement 14 — The record survives
 
@@ -374,34 +474,55 @@ keep for years is not one crash from gone.
 14.3 WHEN the user deletes nothing THEN the system SHALL delete nothing — no
      automatic expiry, archival, or pruning of old expenses or entries.
 
+### Requirement 15 — The data never leaves the PC
+
+As the only user, I want my spending and my private writing to stay in my house,
+so that using this costs me no privacy.
+
+#### Acceptance Criteria
+
+15.1 WHEN the user records anything by voice THEN the audio SHALL be processed only
+     on the user's own PC, and SHALL NOT be transmitted to any third party.
+15.2 WHEN insights are generated, on demand or periodically THEN the expense and
+     journal content used SHALL be processed only on the user's own PC, and SHALL
+     NOT be transmitted to any third party.
+15.3 WHEN the system runs normally THEN it SHALL make no request to any external
+     service carrying the user's expenses, journal text, audio, or anything
+     derived from them.
+15.4 WHEN the system is set up or used THEN it SHALL NOT require creating an
+     account with, authenticating to, or holding an API key for any external
+     service in order to transcribe voice or generate insights.
+15.5 WHEN the user's home internet connection is down but the phone and the PC are
+     both on the private network THEN voice capture and insights SHALL still work.
+
 ---
 
 ## Assumptions
 
 Decisions taken rather than escalated. Object to any of these at Approve Plan;
-each is cheap to reverse now and expensive to discover at QA.
+each is cheap to reverse now and expensive to discover at QA. Items marked
+**[confirmed]** were assumptions I made that the human has since confirmed at the
+Kickoff gate; **[revised]** items changed as a result of his answers.
 
 - **A1. Expenses only — no income, balances, or budgets.** Every concrete detail
-  in the ask concerns spending and its categorisation; nothing mentions money
-  coming in.
+  in the ask concerns spending and its categorisation.
 - **A2. Single currency, Colombian pesos, whole pesos with no cents.** The ask
   says "pesos" and writes `14.000` in Latin-American convention, where cents are
   not used in practice.
-- **A3. Interface language is Spanish.** The app is used in a Spanish-speaking
-  daily context and the spoken input will be Spanish; the ask being written in
-  English is communication with the builder, not a product requirement. *(Flag
-  this one if wrong — it touches every string.)*
-- **A4. Voice input is Spanish, with the language selectable in settings.** Same
-  reason as A3; selectability makes it cheap to be wrong.
+- **A3. [confirmed] Interface language is Spanish.**
+- **A4. [revised] Voice input is Spanish only; no language switcher.** Spanish was
+  confirmed, so a selector became unused scope that conflicts with the stated wish
+  for something uncomplicated.
 - **A5. The app runs in the phone's browser, not as an app-store install.** The
-  ask says "connect to it using my phone" and describes a server, not a published
-  app; an app store listing would also conflict with Requirement 12.
-- **A6. No login or account UI is presented on the user's own home network.** There
-  is exactly one user and the ask asks for simplicity. *(Subject to Q1 — an
-  away-from-home answer changes this.)*
-- **A7. Categories and payment methods ship with a sensible starter list and are
-  fully user-editable.** A fixed list invents a constraint the user did not state;
-  an empty list makes the first use hostile.
+  ask describes a server and a phone, not a published app; an app store listing
+  would also conflict with Requirement 12.
+- **A6. [revised] There is no in-app login or passcode.** The private network is
+  the access boundary (13.6), the phone is David's own, and an unlock step before
+  every capture is exactly the friction this app exists to remove. *Reversible —
+  say so if you want the app itself locked in case the phone is lost or lent.*
+- **A7. Categories and payment methods ship with a sensible starter list, in
+  Spanish, and are fully user-editable.** A fixed list would invent a constraint
+  the user did not state; an empty list makes first use hostile.
 - **A8. Per-payment-method totals are shown alongside the category percentages.**
   The ask records payment method deliberately and states no other use for it.
 - **A9. Expenses default to today and may be backdated but not future-dated.** This
@@ -416,10 +537,12 @@ each is cheap to reverse now and expensive to discover at QA.
   it.** The ask says to leave the space only.
 - **A14. Full data export is included in this pass.** The journal is irreplaceable
   personal writing and the ask specifies no backup mechanism at all.
-- **A15. The app requires the server to be reachable at the moment of capture;
-  there is no offline queue on the phone in this pass.** Offline capture is real
-  scope and the ask does not ask for it. *(This is the assumption most likely to
-  be overturned by the answer to Q1.)*
+- **A15. [revised] There is no offline queue on the phone; the private network
+  must be reachable at the moment of capture.** Away-from-home use is now required
+  (13.4), but it is served by the private network rather than by storing captures
+  on the phone. Criterion 13.5 covers the residual risk — a failed save keeps your
+  text on screen instead of losing it. *A true offline queue is real scope; say so
+  if a dropped connection mid-Uber is something you expect to hit often.*
 - **A16. No notifications, reminders, streaks, or any prompt to use the app.** Not
   requested, and it conflicts with the stated wish for something uncomplicated.
 - **A17. Insights are read-only and never act on the user's data.** An assistant
@@ -427,40 +550,24 @@ each is cheap to reverse now and expensive to discover at QA.
   second pair of eyes.
 - **A18. Light interface only; no dark mode in this pass.** The ask specifies
   "mostly white".
+- **A19. The periodic summary covers a calendar month and is produced when the
+  month ends.** The ask's only stated time horizons are "today" and "this month",
+  so the summary matches the unit the user already thinks in. *Say so if you'd
+  rather have it weekly.*
+- **A20. The summary is produced in the background and read later, never generated
+  while the user waits.** On the measured hardware, generating on open would mean
+  watching a spinner for tens of seconds; hence 11.15.
+- **A21. Insight answers may be slow, but must be bounded, visible, and
+  cancellable** (11.12, 11.13). This is the honest bar given the hardware
+  trade-off David accepted with the facts in front of him; treating slowness
+  itself as a defect would be re-litigating a decision he already made.
+- **A22. Only one insight question is answered at a time.** With 8 CPU cores and no
+  GPU, concurrent generation makes every answer slower, and there is one user, who
+  asks one question at a time.
 
 ## Open Questions
 
-Three, each of which materially changes scope, cost, or what the user
-experiences; each has more than one reasonable reading; and none has a default I
-could pick and defend.
-
-**Q1 — Do you need to use this away from home, or only on your own Wi-Fi?**
-*(scope + security)*
-The ask says the server lives on your PC and you connect with your phone. If that
-means only when you are home on the same network, the app stays simple and closed.
-But the headline use case — saying "I spent 14.000 on Uber" the moment you get out
-of the Uber — happens on the street, on mobile data. Making it work there means
-your PC has to be reachable from the internet, which brings in access control (a
-passcode or similar on the app) and a real security surface. Answering "home only"
-also means expenses get entered later, from memory, which is exactly the friction
-this app exists to remove. Which do you want?
-
-**Q2 — May your data leave your PC to a free third-party service, or must
-everything stay local?** *(privacy + cost + feasibility)*
-Both voice transcription and the LLM insights need to run somewhere. Free options
-split into two families: (a) free cloud tiers — your spoken audio and your journal
-text get sent to an outside company's servers, costs nothing, works on any
-hardware, but has quotas and means personal reflections leave your house; or
-(b) fully local on your PC — nothing ever leaves, no quotas, but it depends on
-your PC being strong enough and quality will be lower. There is a middle option:
-local for the journal (the private part) and cloud for finance parsing. Which line
-do you want drawn? If you can tell me your PC's rough specs (RAM, and whether it
-has a dedicated GPU) that helps me tell you whether (b) is realistic.
-
-**Q3 — What should the LLM actually do with your information?** *(scope)*
-"Insights about my information" reads two different ways and they are different
-products. (a) **You ask** — a box where you type or say "how much did I spend on
-food this month?" or "what was I worried about in July?" and it answers from your
-own records. (b) **It tells you** — the app produces a short written summary on
-its own, e.g. at the end of each month, pointing out patterns in your spending and
-your journal without you asking. (c) Both. Which one is the thing you pictured?
+**None.** All three escalated questions were answered at the Kickoff gate and are
+folded into § Decisions taken at the Kickoff gate and into the criteria above. The
+uncertainties I chose not to escalate are recorded as Assumptions; **A6, A15, and
+A19** are the three most worth a second look at Approve Plan.

@@ -5,7 +5,9 @@
   "mode": "greenfield",
   "has_frontend": true,
   "stage": "pm",
-  "gates_passed": [],
+  "gates_passed": [
+    "kickoff"
+  ],
   "index": {
     "head": null,
     "built_at": null,
@@ -113,7 +115,13 @@
     "review_impl": 3,
     "qa_impl": 3
   },
-  "agents": {},
+  "agents": {
+    "pm": {
+      "id": "aba0c1ccba4247e89",
+      "status": "completed",
+      "spawned_at": "2026-08-05T23:13:41+00:00"
+    }
+  },
   "baseline_revision": "247f6b044c77ac0832175b61e2bb5b38c863ac00",
   "blockers": [],
   "deferred": [],
@@ -127,7 +135,17 @@
       "stage": "pm",
       "at": "2026-08-05T23:07:07+00:00",
       "note": "stage intake -> pm"
+    },
+    {
+      "stage": "pm",
+      "at": "2026-08-05T23:13:41+00:00",
+      "note": "pm: completed"
+    },
+    {
+      "stage": "pm",
+      "at": "2026-08-05T23:15:47+00:00",
+      "note": "gate passed: kickoff"
     }
   ],
-  "updated_at": "2026-08-05T23:07:07+00:00"
+  "updated_at": "2026-08-05T23:15:47+00:00"
 }

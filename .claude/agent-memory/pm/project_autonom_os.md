@@ -13,6 +13,18 @@ modules: voice and manual. An LLM produces insights over the user's own data.
 street in seconds; journal thoughts arrive unstructured at night. Any design that
 adds a decision at capture time defeats the purpose of the app.
 
+**Settled at the Kickoff gate (2026-08-05), do not re-litigate:**
+- **Everything runs locally on David's PC.** He was shown the trade-off explicitly
+  — free cloud tiers would be faster and better — and chose local anyway. Privacy
+  outranks AI quality for him. Never propose a cloud model or cloud transcription,
+  even a free one.
+- **Away-from-home access via a private network** (VPN-style), not by exposing the
+  PC to the internet. He wants to capture the expense on the street.
+- **Host hardware, measured:** 13 GB RAM (~6.7 GB free), 8 CPU cores, integrated
+  AMD Radeon Vega, **no dedicated GPU / no CUDA**, 37 GB disk. Any model proposal
+  must fit this. He accepted that insights will be slow in exchange for privacy.
+- **Spanish** UI and voice.
+
 **How to apply:**
 - **Zero cost is a first-class requirement**, on the same footing as the features.
   Any dependency, model, or service that has a paid tier, quota-to-paywall, or
