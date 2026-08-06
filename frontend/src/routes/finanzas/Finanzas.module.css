@@ -1,0 +1,202 @@
+/*
+ * Finanzas is RULED. Hairline rules, 20px gutters, a two-line row that scans —
+ * a ledger. Diario, by contrast, has no rules at all. The two moods the brief
+ * asks for are carried by that structural difference rather than by decoration.
+ */
+
+.hero {
+  padding: 22px var(--pad) 18px;
+}
+.when {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  letter-spacing: 0.01em;
+}
+.sum {
+  font-size: 46px;
+  font-weight: 300;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+.sub {
+  margin-top: 7px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.heroMonth .sum {
+  font-size: 40px;
+  margin-top: 10px;
+}
+
+.monthnav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+}
+.mname {
+  flex: 1;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.arrow {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--violet);
+  flex: none;
+}
+.arrow:hover {
+  background: var(--violet-wash);
+}
+.arrow:active {
+  background: var(--violet-wash2);
+  color: var(--violet-deep);
+}
+.arrow:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: -2px;
+}
+.arrow:disabled {
+  color: var(--ink-ghost);
+  background: none;
+  cursor: not-allowed;
+}
+
+/* ---- the ledger ---- */
+.ledger {
+  border-top: 1px solid var(--rule);
+}
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  min-height: 60px;
+  padding: 13px var(--pad);
+  border-bottom: 1px solid var(--rule);
+}
+.what {
+  flex: 1;
+  min-width: 0;
+}
+.cat {
+  display: block;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.meta {
+  display: block;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  margin-top: 3px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.amt {
+  font-size: 17px;
+  font-weight: 700;
+  white-space: nowrap;
+  padding-top: 1px;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+.row:hover {
+  background: var(--violet-wash);
+}
+/* --ink-soft is 5.12:1 on this tint: the secondary line stays readable pressed. */
+.row:active {
+  background: var(--violet-wash2);
+}
+.row:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: -2.5px;
+  background: var(--violet-wash);
+}
+
+.editHint {
+  color: var(--violet);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ---- the month breakdown: a ranked list, not a chart ----
+   Constraint 6: name, amount and percentage sit adjacent to every bar, so no
+   information is carried by colour. Constraint 4: one violet, ten tints. */
+.brk {
+  padding: 0 var(--pad);
+}
+.brk li {
+  padding: 11px 0 13px;
+  border-bottom: 1px solid var(--rule);
+}
+.line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.name {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 600;
+}
+.val {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+.pct {
+  width: 44px;
+  text-align: right;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.track {
+  margin-top: 9px;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--paper-sunk);
+}
+.fill {
+  height: 7px;
+  border-radius: 4px;
+  background: var(--t2);
+}
+
+.pm {
+  padding: 0 var(--pad);
+}
+.pm li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.tail {
+  height: 28px;
+}
+
+/* Constraint 16: a save in flight is visible, and so is its failure. */
+.skeleton {
+  padding: 22px var(--pad);
+  color: var(--ink-soft);
+  font-size: 15px;
+}

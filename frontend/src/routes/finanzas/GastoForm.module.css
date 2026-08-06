@@ -1,0 +1,49 @@
+.transcript {
+  padding: 16px var(--pad) 0;
+}
+.transcriptLabel {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding-bottom: 8px;
+}
+.transcriptText {
+  font-size: 17px;
+  line-height: 1.6;
+}
+.transcriptRetry {
+  justify-content: flex-start;
+  padding-left: 0;
+  margin-top: 2px;
+}
+.transcriptRule {
+  height: 1px;
+  background: var(--rule);
+  margin-top: 6px;
+}
+
+.inlineCreate {
+  margin-top: 12px;
+}
+.inlineActions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.inlineButton {
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.gap {
+  height: 10px;
+}
+
+.subjectMeta {
+  font-weight: 400;
+  color: var(--ink-soft);
+  font-size: 14px;
+}

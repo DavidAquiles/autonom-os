@@ -1,0 +1,54 @@
+/*
+ * Autonom-OS design tokens.
+ *
+ * KD-14 puts the whole palette in one file so Design Constraints 1-5, 12, 21
+ * and 22 are checkable by reading it. Values are carried unchanged from the
+ * approved Phase 1 mockups (mockups/_build/css.py).
+ *
+ * There is no `prefers-color-scheme` rule anywhere in this app (constraint 22).
+ */
+:root {
+  color-scheme: light;
+
+  /* Surfaces — constraint 1: the dominant surface is white/near-white. */
+  --paper: #ffffff;
+  --paper-sunk: #faf9fc;
+  --rule: #e9e6f0;
+  --rule-strong: #dcd8e6;
+
+  /* Ink — a near-black in the violet hue family, not a second hue. */
+  --ink: #221b33;      /* 16.5:1 on white */
+  --ink-soft: #5e5770; /*  6.83:1 on white; 5.12:1 on --violet-wash2 (pressed) */
+  --ink-ghost: #b4aec2; /* non-text only: rules, faded tally marks */
+
+  /* Violet — the only brand hue (constraint 2). */
+  --violet: #5a2fce;      /* 7.69:1 on white, and white on it */
+  --violet-deep: #3f1f96; /* pressed */
+  --violet-line: #d5c9f6;
+  --violet-wash: #f2edfd;
+  --violet-wash2: #e5dafa;
+
+  /* The one functional colour beyond violet (constraint 3):
+     destructive confirmation and validation errors, nowhere else. */
+  --danger: #c0182b; /* 6.16:1 on white */
+  --danger-deep: #9e1123;
+  --danger-press: #8b0e1e;
+  --danger-line: #f0c3c8;
+  --danger-wash: #fdf1f2;
+
+  /* Violet tint ramp for the month breakdown (constraint 4). */
+  --t1: #4a24a8;
+  --t2: #5a2fce;
+  --t3: #7a57dc;
+  --t4: #9a82e7;
+  --t5: #b6a6ef;
+  --t6: #cbbef3;
+  --t7: #dbd2f7;
+  --t8: #e7e1fa;
+  --t9: #efebfc;
+  --t10: #f4f1fd;
+
+  --pad: 20px;        /* Finanzas gutter — ruled and scannable */
+  --pad-diario: 24px; /* Diario is roomier */
+  --r-sheet: 22px;
+}

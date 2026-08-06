@@ -1,0 +1,157 @@
+.card {
+  padding: 20px var(--pad) 22px;
+  border-bottom: 1px solid var(--rule);
+}
+.card h2 {
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+}
+.stamp {
+  margin-top: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+/* Insight text is prose to be read, not a row to be scanned. */
+.prose {
+  margin-top: 14px;
+  font-size: 16.5px;
+  line-height: 1.68;
+  white-space: pre-wrap;
+}
+.prose p + p {
+  margin-top: 0.95em;
+}
+.pending {
+  color: var(--ink-soft);
+}
+
+.qhead {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.facts {
+  margin-top: 16px;
+  border-top: 1px solid var(--rule);
+  padding-top: 12px;
+}
+.facts li {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 6px 0;
+  font-size: 14.5px;
+}
+.factName {
+  flex: 1;
+  color: var(--ink-soft);
+}
+.factValue {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ask {
+  padding: 20px var(--pad) 22px;
+}
+.askLabel {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.askRow {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  margin-top: 10px;
+}
+.askRow input {
+  flex: 1;
+}
+/* Two microphones can be on this screen at once — the capture bar's (1.4) and
+   this one (11.10). They are told apart by shape and position: a circle in the
+   thumb bar, a rounded square attached to the question field. */
+.askMic {
+  width: 52px;
+  flex: none;
+  border-radius: 14px;
+  background: var(--violet);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.askMic:hover {
+  background: var(--violet-deep);
+}
+.askMic:active {
+  background: var(--violet-deep);
+}
+.askMic:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: 3px;
+}
+.askMic:disabled {
+  background: var(--paper-sunk);
+  color: var(--ink-soft);
+  border: 1.5px solid var(--rule);
+  cursor: not-allowed;
+}
+.askSubmit {
+  margin-top: 10px;
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.wait {
+  padding: 20px 0 0;
+}
+.phase {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--violet);
+}
+.local {
+  margin-top: 20px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 320px;
+}
+.acts {
+  margin-top: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-left: 2.5px solid var(--violet-line);
+  background: var(--violet-wash);
+  border-radius: 0 12px 12px 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+.note b {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.retry {
+  margin-top: 14px;
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.tail {
+  height: 20px;
+}

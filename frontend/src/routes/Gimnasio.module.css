@@ -1,0 +1,29 @@
+.gym {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 var(--pad) 60px;
+}
+/* Constraint 20: marked as not yet available, not made to look broken. The rule
+   is drawn in the pale violet line rather than the full brand violet — present,
+   but not claiming to be a live surface. */
+.mark {
+  width: 34px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: var(--violet-line);
+  margin-bottom: 22px;
+}
+.gym h1 {
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.gym p {
+  margin-top: 12px;
+  font-size: 16.5px;
+  line-height: 1.62;
+  color: var(--ink-soft);
+  max-width: 300px;
+}

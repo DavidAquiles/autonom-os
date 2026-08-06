@@ -1,0 +1,131 @@
+/* Buttons. Declarations carried from the approved mockups. */
+
+.btn {
+  width: 100%;
+  /* Constraint 10: every interactive control clears 44x44. */
+  min-height: 54px;
+  border-radius: 999px;
+  font-size: 17px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 20px;
+  text-align: center;
+}
+
+.auto {
+  width: auto;
+}
+
+.primary {
+  background: var(--violet);
+  color: #fff;
+}
+.primary:hover {
+  background: var(--violet-deep);
+}
+.primary:active {
+  background: var(--violet-deep);
+  transform: scale(0.985);
+}
+.primary:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: 3px;
+}
+.primary:disabled {
+  background: var(--paper-sunk);
+  /* --ink-soft is 6.83:1 on --paper-sunk: a disabled label is still readable. */
+  color: var(--ink-soft);
+  border: 1.5px solid var(--rule);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ghost {
+  background: var(--paper);
+  color: var(--violet);
+  border: 1.5px solid var(--violet-line);
+}
+.ghost:hover {
+  background: var(--violet-wash);
+  border-color: var(--violet);
+}
+.ghost:active {
+  background: var(--violet-wash2);
+  color: var(--violet-deep);
+}
+.ghost:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: 3px;
+}
+.ghost:disabled {
+  background: var(--paper-sunk);
+  color: var(--ink-soft);
+  border-color: var(--rule);
+  cursor: not-allowed;
+}
+
+/* Constraint 3: red appears here and on validation errors, nowhere else. */
+.danger {
+  background: var(--danger);
+  color: #fff;
+}
+.danger:hover {
+  background: var(--danger-deep);
+}
+.danger:active {
+  background: var(--danger-press);
+}
+.danger:focus-visible {
+  outline: 2.5px solid var(--danger);
+  outline-offset: 3px;
+}
+
+/* An outlined trigger for a destructive path — it opens a confirmation, it does
+   not destroy anything itself (constraint 19). */
+.dangerGhost {
+  background: var(--paper);
+  color: var(--danger);
+  border: 1.5px solid var(--danger-line);
+}
+.dangerGhost:hover {
+  background: var(--danger-wash);
+  border-color: var(--danger);
+}
+.dangerGhost:active {
+  background: var(--danger-wash);
+  color: var(--danger-press);
+}
+.dangerGhost:focus-visible {
+  outline: 2.5px solid var(--danger);
+  outline-offset: 3px;
+}
+
+.text {
+  background: none;
+  color: var(--violet);
+  min-height: 48px;
+  font-size: 16px;
+}
+.text:hover {
+  background: var(--violet-wash);
+}
+.text:active {
+  background: var(--violet-wash2);
+  color: var(--violet-deep);
+}
+.text:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: 2px;
+}
+.text:disabled {
+  color: var(--ink-soft);
+  cursor: not-allowed;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+}

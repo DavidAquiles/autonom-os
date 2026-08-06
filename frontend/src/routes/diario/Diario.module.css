@@ -1,0 +1,162 @@
+/*
+ * Diario is NOT ruled. No cards, no borders, no rows — 24px gutters, 17.5px on
+ * 1.72, entries separated by space alone. Put a Diario screen beside a Finanzas
+ * screen and the difference in tempo is visible before a word is read.
+ */
+
+.wrap {
+  padding-left: var(--pad-diario);
+  padding-right: var(--pad-diario);
+}
+
+.dayLabel {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 26px var(--pad-diario) 0;
+}
+
+.entry {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px var(--pad-diario) 20px;
+}
+.time {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+/* 6.4: line breaks and paragraphs come back exactly as they were written. */
+.body {
+  margin-top: 7px;
+  font-size: 17.5px;
+  line-height: 1.72;
+  letter-spacing: 0.002em;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.entry:hover {
+  background: var(--violet-wash);
+}
+.entry:active {
+  background: var(--violet-wash2);
+}
+.entry:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: -3px;
+}
+
+/* In the LIST a long entry clamps with an explicit control. 6.5's "display in
+   full" is met by the entry view, which never clamps. */
+.clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 7;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.more {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 2px;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--violet);
+}
+
+.daySep {
+  height: 1px;
+  background: var(--rule);
+  margin: 0 var(--pad-diario);
+}
+
+.reader {
+  padding: 10px var(--pad-diario) 0;
+}
+
+.field {
+  padding: 10px var(--pad-diario) 0;
+}
+.foot {
+  padding: 22px var(--pad-diario) 24px;
+}
+.tall {
+  min-height: 320px;
+}
+.medium {
+  min-height: 260px;
+}
+
+.dateNav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 22px var(--pad-diario) 6px;
+}
+.dateName {
+  flex: 1;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.arrow {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--violet);
+  flex: none;
+}
+.arrow:hover {
+  background: var(--violet-wash);
+}
+.arrow:active {
+  background: var(--violet-wash2);
+  color: var(--violet-deep);
+}
+.arrow:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: -2px;
+}
+.arrow:disabled {
+  color: var(--ink-ghost);
+  background: none;
+  cursor: not-allowed;
+}
+
+.empty {
+  padding-left: var(--pad-diario);
+  padding-right: var(--pad-diario);
+}
+
+.tail {
+  height: 20px;
+}
+
+.gap {
+  height: 10px;
+}
+
+.skeleton {
+  padding: 22px var(--pad-diario);
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+.transcriptHead {
+  padding: 14px var(--pad-diario) 0;
+}
+.transcriptLabel {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding-bottom: 8px;
+}

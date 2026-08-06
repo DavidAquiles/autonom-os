@@ -1,0 +1,261 @@
+/*
+ * The app frame. Constraint 8: the phone is the design target and a wider
+ * viewport gets the same column centred — no sidebar, no desktop variant.
+ */
+
+.app {
+  width: min(390px, 100vw);
+  margin: 0 auto;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  position: relative;
+  overflow: hidden;
+}
+
+.scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---- app bar ---- */
+.appbar {
+  flex: none;
+  padding: 6px var(--pad) 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.module {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.act {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--violet);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 2px;
+}
+.act:hover {
+  color: var(--violet-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.act:active {
+  color: var(--violet-deep);
+}
+.act:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* ---- form bar: a screen you leave rather than a module you are in ---- */
+.formbar {
+  flex: none;
+  padding: 2px var(--pad) 0;
+  display: flex;
+  align-items: center;
+}
+.close {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--violet);
+  margin-left: -10px;
+  flex: none;
+}
+.close:hover {
+  color: var(--violet-deep);
+}
+.close:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: -2px;
+  border-radius: 999px;
+}
+.formTitle {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 700;
+  margin-left: 4px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- in-module tabs ---- */
+.tabs {
+  flex: none;
+  display: flex;
+  gap: 10px;
+  padding: 0 calc(var(--pad) - 9px);
+  border-bottom: 1px solid var(--rule);
+}
+.tab {
+  position: relative;
+  min-height: 46px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  padding: 0 9px;
+}
+.tabOn {
+  color: var(--ink);
+  font-weight: 700;
+}
+.tabOn::after {
+  content: '';
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  bottom: -1px;
+  height: 2.5px;
+  background: var(--violet);
+  border-radius: 2px;
+}
+.tab:hover {
+  color: var(--ink);
+}
+.tab:active {
+  color: var(--violet-deep);
+}
+.tab:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: -3px;
+  border-radius: 8px;
+}
+
+/* ---- capture bar: constraint 9, both capture actions in the thumb zone ---- */
+.capture {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px var(--pad) 12px;
+  background: var(--paper);
+  border-top: 1px solid var(--rule);
+}
+.manual {
+  flex: 1;
+  min-height: 52px;
+  border-radius: 999px;
+  border: 1.5px solid var(--violet-line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--violet);
+  background: var(--paper);
+}
+.manual:hover {
+  background: var(--violet-wash);
+  border-color: var(--violet);
+}
+.manual:active {
+  background: var(--violet-wash2);
+  color: var(--violet-deep);
+  border-color: var(--violet-deep);
+}
+.manual:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: 2px;
+}
+
+.mic {
+  width: 58px;
+  height: 58px;
+  border-radius: 999px;
+  background: var(--violet);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.mic:hover {
+  background: var(--violet-deep);
+}
+.mic:active {
+  background: var(--violet-deep);
+  transform: scale(0.96);
+}
+.mic:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: 3px;
+}
+.mic:disabled {
+  background: var(--paper-sunk);
+  color: var(--ink-soft);
+  border: 1.5px solid var(--rule);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ---- bottom navigation: constraint 11, exactly three, on every screen ---- */
+.nav {
+  flex: none;
+  display: flex;
+  background: var(--paper);
+  border-top: 1px solid var(--rule);
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
+.nav a {
+  flex: 1;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+/* Must out-specify `.nav a` above, which is (0,1,1). Written as a descendant
+   pair rather than a bare class for that reason. */
+.nav a.navOn {
+  color: var(--violet);
+  font-weight: 700;
+}
+.nav a:hover {
+  background: var(--violet-wash);
+}
+.nav a:active {
+  background: var(--violet-wash2);
+}
+.nav a:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: -3px;
+  border-radius: 10px;
+}
+.soon {
+  display: block;
+  height: 13px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}

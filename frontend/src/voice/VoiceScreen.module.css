@@ -1,0 +1,133 @@
+/*
+ * Two waits, drawn differently on purpose.
+ *
+ * Recording is BOUNDED — it hard-stops at 30 s — so a determinate meter is an
+ * honest thing to show. Transcription is UNBOUNDED, so it gets elapsed time and
+ * never a bar (KD-11; constraint 28).
+ */
+
+.listen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--pad);
+  text-align: center;
+}
+
+/* Constraint 17: "listening now" cannot be mistaken for idle. */
+.pulse {
+  width: 132px;
+  height: 132px;
+  border-radius: 999px;
+  background: var(--violet);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  position: relative;
+}
+.pulse::before,
+.pulse::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 999px;
+  border: 2.5px solid var(--violet);
+  animation: ring 2.6s ease-out infinite;
+}
+.pulse::after {
+  animation-delay: 1.3s;
+}
+@keyframes ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+.listen h2 {
+  margin-top: 28px;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.clock {
+  margin-top: 10px;
+  font-size: 34px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.cap {
+  margin-top: 14px;
+  width: 220px;
+}
+.capTrack {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--rule);
+}
+.capFill {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--violet);
+}
+.capLabel {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.listen .acts {
+  margin-top: 34px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ---- the unbounded wait ---- */
+.wait {
+  padding: 34px var(--pad) 0;
+}
+.wait h2 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+}
+.phase {
+  margin-top: 9px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--violet);
+}
+.local {
+  margin-top: 20px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 320px;
+}
+.wait .acts {
+  margin-top: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.note {
+  margin-top: 28px;
+  padding: 12px 14px;
+  border-left: 2.5px solid var(--violet-line);
+  background: var(--violet-wash);
+  border-radius: 0 12px 12px 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}

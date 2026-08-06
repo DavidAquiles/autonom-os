@@ -1,0 +1,61 @@
+.newRow {
+  padding: 14px var(--pad) 0;
+}
+
+.createInline {
+  max-width: 100%;
+}
+.createActions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.smallButton {
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.statusValue {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.exportBlock {
+  padding: 0 var(--pad) 30px;
+}
+
+/* An anchor rather than a button: `GET /api/export` answers with
+   Content-Disposition: attachment, so the browser's own download does the work
+   and no blob is held in memory. Relative path, per KD-2. */
+.exportLink {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 999px;
+  font-size: 17px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 20px;
+  background: var(--paper);
+  color: var(--violet);
+  border: 1.5px solid var(--violet-line);
+}
+.exportLink:hover {
+  background: var(--violet-wash);
+  border-color: var(--violet);
+}
+.exportLink:active {
+  background: var(--violet-wash2);
+  color: var(--violet-deep);
+}
+.exportLink:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: 3px;
+}
+
+.gap {
+  height: 10px;
+}

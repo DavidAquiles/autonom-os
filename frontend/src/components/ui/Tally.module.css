@@ -1,0 +1,76 @@
+/*
+ * The signature: an unbounded wait drawn as a tally.
+ *
+ * Constraint 25 requires progress that visibly changes; constraint 28 forbids
+ * anything implying a completion time. KD-11 settles why there is no third
+ * option: the API exposes no completion fraction for generation and cannot,
+ * because token counts do not map to remaining time. `elapsed_ms` is the only
+ * progress signal there is, so elapsed time is the only honest thing to draw.
+ *
+ * One stroke per second, grouped in fives with the fifth crossing the group.
+ * Older strokes fade, the newest is full violet, so the direction of travel is
+ * visible in a still frame. There is no track, so there is nothing to fill.
+ */
+
+.wrap {
+  margin-top: 26px;
+}
+
+.tally {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 13px;
+  align-items: flex-end;
+  min-height: 24px;
+}
+
+.group {
+  display: flex;
+  align-items: flex-end;
+  height: 22px;
+  position: relative;
+}
+
+.tick {
+  width: 2.5px;
+  height: 20px;
+  border-radius: 1px;
+  background: var(--violet);
+  margin-right: 4px;
+}
+
+.tickFive {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: 2px;
+  height: 25px;
+  background: var(--violet);
+  transform: rotate(26deg);
+  transform-origin: center;
+}
+
+.partial .tick:last-child {
+  margin-right: 0;
+}
+
+.secs {
+  margin-top: 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.n {
+  font-size: 32px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.u {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}

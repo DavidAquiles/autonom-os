@@ -1,0 +1,100 @@
+/*
+ * The chip is the control the four-interaction budget rests on (2.8): every
+ * category and every payment method is one tap, already on screen. A <select>,
+ * a modal or a bottom sheet is two interactions each and puts the total at six.
+ * Ten categories and six methods wrap into rows inside 390px with no horizontal
+ * scrolling (constraints 7, 10).
+ */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  min-height: 44px;
+  padding: 0 15px;
+  border-radius: 999px;
+  border: 1.5px solid var(--rule-strong);
+  background: var(--paper);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.chip:hover {
+  background: var(--violet-wash);
+  border-color: var(--violet-line);
+}
+.chip:active {
+  background: var(--violet-wash2);
+  border-color: var(--violet);
+  color: var(--violet-deep);
+}
+.chip:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: 2px;
+}
+.chip:disabled {
+  background: var(--paper-sunk);
+  border-color: var(--rule);
+  color: var(--ink-soft);
+  cursor: not-allowed;
+}
+
+.on {
+  background: var(--violet);
+  border-color: var(--violet);
+  color: #fff;
+  font-weight: 700;
+}
+.on:hover {
+  background: var(--violet-deep);
+  border-color: var(--violet-deep);
+}
+.on:active {
+  background: var(--violet-deep);
+  color: #fff;
+}
+
+/* 3.2: creating one is an extra chip, outside the four — the exceptional path. */
+.new {
+  border-style: dashed;
+  color: var(--violet);
+  border-color: var(--violet-line);
+}
+.new:hover {
+  border-color: var(--violet);
+  background: var(--violet-wash);
+}
+
+/* 9.2: a field the voice pass could not determine is visibly marked. */
+.missing {
+  border: 1.5px dashed var(--violet-line);
+  border-radius: 16px;
+  padding: 10px;
+  background: var(--violet-wash);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--violet-wash);
+  color: var(--violet);
+}
+
+.tagNeed {
+  background: var(--paper);
+  color: var(--ink-soft);
+  border: 1.5px dashed var(--rule-strong);
+}

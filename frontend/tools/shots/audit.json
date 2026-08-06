@@ -1,0 +1,822 @@
+[
+  {
+    "name": "finanzas-hoy",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-hoy--fila-hover",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-hoy--fila-foco",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-hoy--fila-pulsada",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-hoy--captura-hover",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-hoy--captura-foco",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-hoy--nav-hover",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-hoy-vacio",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-mes",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-mes--desplazado",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-mes--flecha-deshabilitada",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-mes-vacio",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-nuevo",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-nuevo--chip-hover",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-nuevo--chip-foco",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-nuevo--chip-pulsado",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-nuevo--elegido",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-nuevo--boton-hover",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-nuevo--boton-pulsado",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-nuevo-error",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-nuevo-nueva-categoria",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-nuevo-fecha",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-guardando",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-guardar-fallo",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-editar",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-eliminar",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-eliminar--boton-pulsado",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-eliminar--boton-hover",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-nuevo--monto-foco",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-nuevo--descripcion-hover",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "diario",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "diario--desplazado",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "diario--entrada-hover",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "diario-vacio",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "diario-fecha",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "diario-fecha-vacia",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "diario-entrada",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "diario-escribir",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "diario-escribir-error",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-sin-resumen",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-generando",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-periodo-vacio",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-resumen-fallo",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-esperando--12s",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-esperando--68s",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-esperando--cancelar-hover",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-respuesta",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-respuesta-periodo-asumido",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-error-preempted",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-error-unverifiable",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-error-insuficiente",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-error-periodo",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-error-timeout",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-ia-no-disponible",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-ocupado",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis-preguntar",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis--pregunta-foco",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "analisis--mic-pulsado",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-ajustes--exportar-hover",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-ajustes",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-ajustes--desplazado",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-ajustes-editar",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-ajustes-quitar",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gimnasio",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "sin-servidor",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "sin-servidor-frio",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "sin-servidor-banner",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "finanzas-hoy--360",
+    "width": 360,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 360,
+    "innerWidth": 360
+  },
+  {
+    "name": "finanzas-hoy--320",
+    "width": 320,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 320,
+    "innerWidth": 320
+  },
+  {
+    "name": "gasto-nuevo--320",
+    "width": 320,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 320,
+    "innerWidth": 320
+  },
+  {
+    "name": "gasto-nuevo--360",
+    "width": 360,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 360,
+    "innerWidth": 360
+  },
+  {
+    "name": "diario--320",
+    "width": 320,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 320,
+    "innerWidth": 320
+  },
+  {
+    "name": "finanzas-hoy--900",
+    "width": 900,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 900,
+    "innerWidth": 900
+  },
+  {
+    "name": "diario--900",
+    "width": 900,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 900,
+    "innerWidth": 900
+  },
+  {
+    "name": "voz-escuchando",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "voz-escuchando--listo-hover",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "voz-escuchando--cancelar-foco",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "voz-transcribiendo",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "voz-fallo",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-voz-revision",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "diario-voz-revision",
+    "width": 390,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  }
+]

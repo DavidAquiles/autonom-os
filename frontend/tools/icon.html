@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>icono</title>
+    <style>
+      /*
+        The launcher icon. No wordmark and no logo work: it is the app's own
+        tally mark — the one drawn element in this design — on the white the
+        rest of the app is made of.
+        ?size=N&pad=N  (pad is the maskable safe-zone inset, in %)
+      */
+      html, body { margin: 0; padding: 0; background: transparent; }
+      .icon {
+        display: flex; align-items: center; justify-content: center;
+        background: #FFFFFF;
+      }
+      .marks { display: flex; align-items: flex-end; position: relative; }
+      .t { background: #5A2FCE; border-radius: 2px; }
+      .five {
+        position: absolute; left: 0; right: 0; margin: 0 auto;
+        background: #5A2FCE; transform: rotate(26deg); transform-origin: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="icon" id="icon"></div>
+    <script>
+      const q = new URLSearchParams(location.search)
+      const size = Number(q.get('size') || 512)
+      const pad = Number(q.get('pad') || 0)
+      const el = document.getElementById('icon')
+      el.style.width = size + 'px'
+      el.style.height = size + 'px'
+
+      const inner = size * (1 - pad / 100)
+      const stroke = Math.max(2, Math.round(inner * 0.036))
+      const gap = Math.round(inner * 0.082)
+      const h = Math.round(inner * 0.44)
+
+      const wrap = document.createElement('div')
+      wrap.className = 'marks'
+      wrap.style.height = h * 1.25 + 'px'
+      for (let i = 0; i < 4; i++) {
+        const t = document.createElement('i')
+        t.className = 't'
+        t.style.width = stroke + 'px'
+        t.style.height = h + 'px'
+        t.style.marginRight = i < 3 ? gap + 'px' : '0'
+        wrap.appendChild(t)
+      }
+      const five = document.createElement('i')
+      five.className = 'five'
+      five.style.width = Math.round(stroke * 0.8) + 'px'
+      five.style.height = Math.round(h * 1.3) + 'px'
+      five.style.borderRadius = '2px'
+      wrap.appendChild(five)
+      el.appendChild(wrap)
+    </script>
+  </body>
+</html>
