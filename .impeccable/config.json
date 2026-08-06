@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "lato",
+        "createdAt": "2026-08-06T17:32:09.411Z",
+        "reason": "User confirmed Lato is intentional: chosen for properly-drawn Spanish diacritics, SIL OFL, self-hosted per offline requirements 15.3/15.5, approved at the Approve Mockups gate"
+      }
+    ]
+  }
+}

@@ -233,6 +233,13 @@
       "location": null,
       "severity": null,
       "at": "2026-08-06T03:34:44+00:00"
+    },
+    {
+      "summary": "F8: ESTADO-PERDIDO liveness detector skips shots configured with a force: selector",
+      "evidence": "frontend/tools/shots.mjs:887-894 — detector runs only for forceText: shots; force: selector shots return forceLost:false unconditionally. Tooling not product; bounds how much weight interactive-state captures carry.",
+      "location": null,
+      "severity": null,
+      "at": "2026-08-06T17:31:54+00:00"
     }
   ],
   "history": [
@@ -327,5 +334,5 @@
       "note": "frontend: dead"
     }
   ],
-  "updated_at": "2026-08-06T17:20:08+00:00"
+  "updated_at": "2026-08-06T17:31:54+00:00"
 }
