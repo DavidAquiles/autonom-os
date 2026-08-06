@@ -195,12 +195,12 @@
     },
     "backend": {
       "id": "ac93ff97fda6d771c",
-      "status": "spawned",
+      "status": "failed",
       "spawned_at": "2026-08-06T00:52:13+00:00"
     },
     "frontend": {
       "id": "afd21daa27e21f576",
-      "status": "spawned",
+      "status": "dead",
       "spawned_at": "2026-08-06T00:52:14+00:00"
     }
   },
@@ -316,7 +316,17 @@
       "stage": "review",
       "at": "2026-08-06T03:34:48+00:00",
       "note": "review_impl rework 1/3"
+    },
+    {
+      "stage": "review",
+      "at": "2026-08-06T16:39:59+00:00",
+      "note": "backend: failed"
+    },
+    {
+      "stage": "review",
+      "at": "2026-08-06T16:53:06+00:00",
+      "note": "frontend: dead"
     }
   ],
-  "updated_at": "2026-08-06T03:34:48+00:00"
+  "updated_at": "2026-08-06T16:53:06+00:00"
 }
