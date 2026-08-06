@@ -81,21 +81,66 @@ origin A cannot silently retry origin B — so this is decided, not left to the 
 
 1. **A second home-screen icon**, installed during setup, labelled distinctly (the frontend owns
    the Spanish label; something that reads as "at home"). In addition, the "cannot reach your
-   server" state on the primary origin offers a plain link to the fallback origin — a navigation,
-   not a retry, which is the only thing that can cross an origin boundary.
+   server" state offers a plain link to the *other* origin — a navigation, not a retry, which is
+   the only thing that can cross an origin boundary.
+
+   **The link is armed while the server is reachable, never at the moment it is needed.** This is
+   the whole mechanism and it is easy to get backwards, so it is stated as a rule: the server
+   advertises both of its origins on `GET /api/health`; the client persists them in the storage of
+   **whatever origin it is currently being served from**, on every successful response; and the
+   unreachable state renders from that origin's own stored copy. There is no fetch while offline —
+   by definition nothing would answer — and no cross-origin read, because there is no such thing.
+
+   The failure this replaces is worth recording so it is not reinvented: `localStorage` is
+   partitioned by origin, so an implementation that writes the address *while on the LAN origin*
+   puts it somewhere the tailnet origin can never read, and the tailnet origin is the one that
+   renders the failure. The mechanism must run in the direction of the origin that will need it,
+   which means every origin stores the set for itself.
+
+   **KD-2's no-hardcoded-origin rule survives intact.** The bundle still contains no origin, host
+   or port; it learns one at runtime as data from the machine that knows its own addresses. A build
+   constant would have to be rebuilt when the LAN address changed; this refreshes on the next
+   successful load.
 2. **The certificate names a fixed LAN IP, not `.local`.** mDNS resolution of `.local` from Android
    Chrome is unreliable, so the setup script requires a DHCP reservation on the router and runs
    `mkcert <LAN-IP> autonomos.local`, putting the IP in the SAN and the hostname in as a
    convenience only. The address is stable because the reservation makes it stable.
-3. **Browser state is per-origin, and microphone permission is the one that matters.** Setup grants
-   microphone access on *both* origins once, at setup time, precisely so that 15.5's scenario does
-   not begin with a permission prompt. Nothing else is at stake: A15 puts no user data in the
-   client, so a cold TanStack cache on the fallback origin costs one fetch.
+3. **Browser state is per-origin, and two things depend on it.** Setup grants microphone access on
+   *both* origins once, at setup time, precisely so that 15.5's scenario does not begin with a
+   permission prompt — and, by loading the app successfully on each origin, it is also what arms
+   the cross-origin link in mechanism 1. Both are the same one-time act. Nothing else is at stake:
+   A15 puts no user data in the client, so a cold TanStack cache on the fallback origin costs one
+   fetch.
+
+**Named residual: an origin that has never once reached the server cannot offer the alternative.**
+Before an origin has had a single successful `/api/health` response it has nothing stored, so the
+unreachable state there renders without a link. 13.8 has two clauses and they fare differently:
+
+- *"tell the user in plain Spanish, at the moment they hit it, what to do instead"* — **holds
+  always.** This is copy, not data: the state says to join the home network and open the local
+  access. It does not depend on knowing the address.
+- *"the working alternative SHALL be reachable in no more than one deliberate action"* — **does not
+  hold in that window**, and no mechanism would. A page cannot learn a peer origin's address
+  without having once talked to the server, and baking it into the bundle is the hardcoded origin
+  this design refuses.
+
+**13.2 holds throughout** — the state is explicit, names the problem, and offers retry; it is not a
+dead end, and the link was always an addition to it rather than the whole of it.
+
+The window is bounded by setup, which loads the app on both origins, so it does not arise in
+operation — but it is a real gap between install and setup completion and is recorded rather than
+argued away. **The setup script owns closing it**: loading each origin once is not optional polish,
+it is what makes 13.8's second clause true.
 
 **Reading of 13.7 this depends on, stated so PM can object:** 13.7 governs *routine daily use*,
 which runs on the primary origin with no extra step. Switching origins is a recovery action during
 an outage, not routine use. If PM reads 13.7 as covering outage recovery too, this design fails it
 and there is no mechanism that would not — origins cannot fail over transparently.
+
+**Two config values name the two origins**, and they are what `GET /api/health` echoes: `PUBLIC_URL`
+(the `https://<host>.<tailnet>.ts.net` origin) and `LAN_BIND_ADDR` plus the TLS port. Both are
+server configuration and neither is ever inferred from a request `Host` header — a client that can
+reach one origin must be told the *other* one, which the request cannot supply.
 
 **The fallback listener binds one interface, not all of them.** `LAN_BIND_ADDR` is the host's LAN
 address; it is never `0.0.0.0`. It runs continuously, because 15.5 can occur at any moment and a
@@ -911,9 +956,12 @@ whose values are a closed vocabulary the frontend maps directly.
 `too_long` · `future_date` · `blank` · `unknown_id` · `duplicate_name`.
 
 ### GET /api/health
-- response: `200 { "status": "ok", "server_time": iso8601, "tz": "America/Bogota", "version": string }`
+- response: `200 { "status": "ok", "server_time": iso8601, "tz": "America/Bogota", "version": string,
+             "origins": { "primary": string|null, "lan": string|null } }`
 - errors:   none; unreachable server is a transport failure the client renders as the "cannot reach your server" state
-- requirements: 13.2, 13.3
+- notes:    `origins` are **absolute origins** (scheme + host + port, no trailing path — e.g. `"https://autonomos.tail1a2b3c.ts.net"`, `"https://192.168.1.42:8443"`), read from server configuration (`PUBLIC_URL`, and `LAN_BIND_ADDR` + the TLS port), **never derived from the request**. Either is `null` when that origin is not configured — `lan` is `null` whenever the fallback listener is disabled (KD-2), and a client must treat `null` as "no alternative exists", not as an error.
+            This field exists so the client can learn the *other* origin **while the server is reachable**. It is read on success and used on failure; it is never fetched at the moment it is needed, because at that moment nothing is answering. See KD-2 mechanism 1 — including why storing it from the LAN origin cannot work.
+- requirements: 13.2, 13.3, 13.8
 
 ### GET /api/status
 - response: `200 { "transcription": "ok"|"unavailable", "llm": "ok"|"unavailable", "checked_at": iso8601 }`
@@ -1142,8 +1190,23 @@ across the whole design, not only across the HTTP surface.
 - **Reachability** — a designed "no puedo alcanzar tu servidor" state in plain language, which
   **renders on a cold open** because the service worker has the shell cached; automatic recovery
   when the server returns, with nothing lost and no reinstall; a failed save keeps the typed text
-  or transcript on screen for retry; the state also offers a link to the LAN fallback origin
-  (KD-2). `requirements: 13.2, 13.3, 13.5`
+  or transcript on screen for retry. `requirements: 13.2, 13.3, 13.5`
+- **Arming and offering the other origin** — two obligations that must not be separated:
+  1. **On every successful `GET /api/health`**, persist the response's `origins` object in the
+     storage of the origin currently being served. Overwrite each time, so a changed LAN address
+     self-heals on the next successful load. The write is unconditional — it must **not** be gated
+     on which origin is serving, which is the inversion that made the link unreachable in the first
+     implementation (`localStorage` is per-origin; writing it from the LAN origin puts it where the
+     tailnet origin can never read it).
+  2. **On the unreachable state**, read that stored object and offer, as a plain link, every entry
+     that is non-null and differs from `window.location.origin`. One tap from the screen the user
+     is already looking at (13.8, second clause). When nothing is stored, or every entry matches
+     the current origin, render the state without a link — never a broken link, never a guessed
+     address, never a fabricated one.
+  The **plain-Spanish instruction is unconditional** and does not depend on any of this: the state
+  always says what to do instead — join the home network, open the local access — because 13.8's
+  first clause is copy, not data, and must hold on first run too.
+  `requirements: 13.2, 13.8`
 - **Browser-only delivery** — a web app plus a web-app manifest for home-screen install; no app
   store; a **shell-only service worker** that precaches the built assets and treats `/api/*` as
   `NetworkOnly`, with no write queue and no cached API responses (KD-13). `requirements: 13.1`
@@ -1421,6 +1484,18 @@ Left to the Implementers, inside the structural bounds above.
   on the `/finanzas/analisis` precedent, with the bottom navigation still carrying exactly three
   destinations. Found by the frontend at mockup time, which is the cheapest place it could have
   been found.
+
+**Resolved in revision 5, after Reviewer CHANGES_REQUESTED (F2)**
+- *The LAN-fallback link could never render.* The design asked the unreachable state to offer a
+  link to the other origin but never said how that origin's address arrives, and the implementation
+  stored it from the LAN origin — where, `localStorage` being per-origin, the tailnet origin that
+  renders the failure can never read it. Resolved by putting `origins: { primary, lan }` on
+  `GET /api/health`, read on **success** during ordinary use and persisted by whatever origin is
+  being served, then read from local storage when the failure renders. The trap that shaped the
+  ruling: reading it at failure time is a fetch to a machine that by definition is not answering,
+  so the reviewer's suggested shape only works once moved in time (KD-2 mechanism 1).
+  A first-run residual is named rather than argued away: 13.8's second clause cannot hold on an
+  origin that has never reached the server, and setup owns closing that window.
 
 **Open for verification, not blocking**
 - *Spanish accuracy of whisper `base`.* Its speed advantage is measured (1.8 s vs 6.4 s on the
