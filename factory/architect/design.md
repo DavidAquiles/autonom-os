@@ -116,7 +116,8 @@ cannot see the backend code.
 
 **The system Python 3.14.4 is not used.** ML- and Rust-backed wheels (`pydantic-core`, `numpy`)
 lag new CPython ABIs, and building them on this box is hours of risk for zero benefit. The backend
-provisions CPython 3.12 with `uv python install 3.12` into a project venv.
+provisions CPython 3.12 with `uv python install 3.12` into a project venv. **Done on this host,
+2026-08-05:** `uv 0.12.2`, CPython 3.12.13. R8 is closed — the Docker fallback is not needed.
 
 Rejected: **Node/Express** (would gain nothing — the sidecars are HTTP either way — and loses the
 text-processing and stdlib-sqlite fit); **Django** (ORM, admin, migrations framework for five
@@ -138,7 +139,7 @@ day, so the durability is free, and the machine is a desktop that will be suspen
 occasionally lose power. A nightly `VACUUM INTO data/snapshots/YYYY-MM-DD.sqlite` keeps the last 7
 days.
 
-Rejected: **PostgreSQL** (a server process and ~200 MB of the 6.7 GB for one user, no benefit);
+Rejected: **PostgreSQL** (a server process and ~200 MB of the 5.3 GiB for one user, no benefit);
 **JSON/NDJSON files** (no atomic multi-row updates, aggregation in Python); **DuckDB** (analytics
 engine; the aggregation here is trivial and OLTP durability matters more).
 
@@ -147,12 +148,35 @@ table. Rejected Alembic: a dependency and a code-generation step for five tables
 
 ### KD-5. Transcription: whisper.cpp `whisper-server`, model `small` (q5_1), Spanish forced
 
-A sidecar on `127.0.0.1:8081`, started with `-l es --no-translate` (8.7) and 6 threads. The API
-process POSTs 16 kHz mono WAV and gets text back.
+A sidecar on `127.0.0.1:8081`, started with **`-l es`** and 6 threads. The API process POSTs 16 kHz
+mono WAV and gets text back. Translation is off by default; there is **no `--no-translate` flag**
+in the current build (b0f6b6e, ggml 0.18.1) — passing it prints usage and exits 1. `-l es` alone
+is what satisfies 8.7.
 
-`small` q5_1 is ~0.6 GB resident and is the size that fits the 30-second bound in 8.8. **Estimate,
-not measurement** (see R9): at 6 threads on a Vega-class APU, expect roughly 2-4× realtime, so a
-30-second utterance lands around **8-15 s**, not the 4-6× a desktop CPU would give.
+**Measured on this host, 2026-08-05** — `small-q5_1`, 6 threads, greedy (`-bo 1 -bs 1`), resident
+RSS **476 MB**:
+
+| Audio | Encode | Total |
+| --- | --- | --- |
+| 4.0 s | 5,652 ms | **6.4 s** |
+| 11.0 s | 5,776 ms | **7.0 s** |
+| 33.0 s | 11,089 ms (2 × 5,544 ms) | **13.6 s** |
+
+**Encode is a fixed cost per 30-second window, not a multiple of the audio length.** Whisper pads
+to a full 30 s window regardless of how much speech is in it, so the right unit is *windows*, not
+"× realtime" — that framing is deleted from this design because it misleads for exactly the
+utterances this app is built around. Three consequences the implementers must design to:
+
+- **Every transcription has a hard ~6.4 s floor.** "Gasté 14 mil en Uber con la tarjeta" is a
+  3-second utterance and costs the same ~6 s as a 28-second one. For short input the effective
+  throughput is *below* 1× realtime. No UI copy, animation, or affordance may imply otherwise
+  (constraint 28), and the phase indicator during transcription (Frontend structure) is what makes
+  that floor feel intentional rather than broken.
+- **The 32 s audio cap deliberately crosses into a second window**, doubling encode to ~11 s and
+  landing a 33 s clip at ~13.6 s. That is inside `STT_TIMEOUT_S=20` with room to spare. The cap is
+  **not** reduced to 30 s to stay in one window: that would trade real capability for a cosmetic
+  number, and 8.8 already passes at 32 s.
+- **8.8 is not at risk.** Worst measured sidecar time is 13.6 s against a 20 s timeout.
 
 **The 8.8 budget is end-to-end, and the client owns the clock.** 8.8 starts when capture ends, so
 the sidecar is only one term:
@@ -161,22 +185,26 @@ the sidecar is only one term:
 | --- | --- |
 | `decodeAudioData` + `OfflineAudioContext` resample + WAV encode on the phone | ≤ 3 s |
 | upload of ~960 KB over LTE | ≤ 4 s |
-| whisper sidecar (`STT_TIMEOUT_S=20`) | ≤ 20 s |
+| whisper sidecar (measured 6.4-13.6 s; `STT_TIMEOUT_S=20`) | ≤ 20 s |
 | response + render | ≤ 1 s |
 | **worst case** | **28 s** |
 
 The client starts a wall clock at capture end and shows an explicit `transcription_timeout` failure
 at **28 s** regardless of what the server is doing (8.4, 8.8). Recording is hard-stopped at 30 s
-client-side; the server rejects audio over 32 s. If measured p95 breaches this, the ladder is
-whisper `small` → `base` (KD-5 rejected list) before anything else changes.
+client-side; the server rejects audio over 32 s.
 
 Rejected:
 
-- **`medium`** — ~1.5 GB resident and roughly 1.5-2× realtime; a 30-second clip lands at 15-20 s
-  before any contention, which puts 8.8 one bad moment from failing. Available as a config change
-  if accuracy proves short and David accepts the wait.
-- **`base`** — faster, noticeably weaker on numerals and proper nouns, which is exactly what 9.6
-  and 9.7 depend on. Kept as the documented fallback if 8.8 fails on real audio.
+- **`medium`** — ~1.5 GB resident (estimate; not benchmarked here) and roughly 3× the encode cost
+  per window, which against the 5.5 s measured for `small` puts a two-window clip near the 20 s
+  timeout. Available as a config change if accuracy proves short and David accepts the wait — but
+  see the resident-memory table in KD-6 before choosing it.
+- **`base`** — **measured 1.8 s on the same 4 s clip against `small`'s 6.4 s**, so the speed win is
+  real and language-independent. Its *quality* is **unvalidated for Spanish**: the only sample
+  benchmarked was English audio forced through `-l es`, which produced garbage from both models and
+  is therefore no evidence at all about Spanish accuracy. `small` stays the default. Before this
+  rung of R9's ladder may be used, someone must transcribe a real Spanish sample containing an
+  amount and a payment method and confirm 9.6 and 9.7 still hold.
 - **faster-whisper (CTranslate2)** — likely faster than whisper.cpp on CPU, but couples model
   memory into the API process and reintroduces the Python-ABI wheel risk KD-3 just removed.
 - **openai-whisper (PyTorch)** — ~2.5 GB of dependencies and several times slower on CPU.
@@ -190,21 +218,33 @@ Rejected:
 ~2.0 GB of weights, ~2.6 GB resident at 4096 context. Qwen2.5-3B has the strongest Spanish of the
 models in this size class and follows "answer only from these facts" instructions reliably.
 
-**Honest latency, corrected.** All figures below are **estimates, not measurements** (R9). On
-dual-channel DDR4 with an integrated GPU this model is memory-bandwidth-bound: expect **6-12
-tok/s** generation and **40-100 tok/s** prompt evaluation at 6 threads. Against the context
-budgets in KD-10:
+**Measured on this host, 2026-08-05** — Ollama 0.32.6, CPU only (`total_vram = 0 B`):
+
+| Case | Prompt eval | Generation | Wall |
+| --- | --- | --- | --- |
+| 113-token prompt | 35.8 tok/s | 13.9 tok/s | **6.9 s** |
+| 1,915-token prompt | 25.7 tok/s | 10.0 tok/s | **82.1 s** |
+
+Generation is **10-14 tok/s**. **Prompt evaluation is 26-36 tok/s** — below the 40-100 tok/s this
+design previously estimated, and it is the dominant cost on anything carrying journal text. Rebuilt
+against the context budgets in KD-10:
 
 | Work | Prompt | Generate | Total |
 | --- | --- | --- | --- |
-| finance-only question (~500-token prompt, 220 out) | 5-13 s | 18-37 s | **23-50 s** |
-| journal question (1,200-token context, ~1,400 total, 220 out) | 14-35 s | 18-37 s | **32-72 s** |
-| monthly summary (~1,800-token prompt, 320 out) | 18-45 s | 27-53 s | **45-98 s** |
+| finance-only question (~500-token prompt, 220 out) | 14-19 s | 16-22 s | **~30-41 s** |
+| journal question (1,200-token context, ~1,400 total, 220 out) | 39-54 s | 16-22 s | **~55-76 s** |
+| monthly summary (~1,800-token prompt, 320 out) | 50-69 s | 23-32 s | **~73-101 s** |
 
 All three fit inside 11.12's 120 s and inside `LLM_TIMEOUT_S=110`, and the summary is background
-work that nobody waits on (11.15). The margin is roughly half of what an optimistic reading would
-give, which is why the context budgets in KD-10 are 1,200 tokens rather than 2,000 and
-`LLM_MAX_TOKENS` for answers is 220. **Nobody downstream should plan against 35 s.**
+work nobody waits on (11.15). Two things follow that downstream roles must not undo:
+
+- **The 1,200-token journal budget is load-bearing, not a round number.** At 26 tok/s the original
+  2,000-token budget would have been ~77 s of prompt evaluation *before the first token*, putting a
+  journal question near 100 s against a 110 s timeout. Raising it back is the fastest way to break
+  11.12.
+- **The 120-second bound is a journal-question bound, not a general one.** A finance question —
+  which is most of what gets asked — measures near 7 s at short prompt lengths and ~30-41 s at the
+  budgeted size. That is genuinely good, and no copy should apologise for it.
 
 Rejected:
 
@@ -225,22 +265,24 @@ Rejected:
 `OLLAMA_KEEP_ALIVE=-1` keeps the model resident: a reload on this hardware costs several seconds
 and would land inside the user's wait.
 
-**Total resident-memory budget against the measured 6.7 GB available.** Both models are pinned in
-memory simultaneously and permanently, so this must add up rather than be reasoned about
-component by component:
+**Total resident-memory budget. The denominator is 5.3 GiB, not 6.7 GB.** Ollama's own startup log
+on this host reports `total="13.1 GiB" available="5.3 GiB"` — the spec's ~6.7 GB figure was
+measured at a different moment and is the more optimistic of the two. Budget against the smaller
+one. Both models are pinned simultaneously and permanently, so this must add up rather than be
+reasoned about component by component:
 
 | Process | Resident |
 | --- | --- |
 | Ollama + Qwen2.5-3B Q4_K_M @ 4096 ctx (`KEEP_ALIVE=-1`) | ~2.6 GB |
-| whisper-server + `small` q5_1 | ~0.6 GB |
+| whisper-server + `small` q5_1 | **476 MB (measured)** |
 | API process (CPython 3.12, FastAPI, SQLite page cache) | ~0.25 GB |
 | `tailscaled` | ~0.08 GB |
-| **total** | **~3.5 GB of 6.7 GB, leaving ~3.2 GB** |
+| **total** | **~3.4 GB of 5.3 GiB, leaving ~1.9 GB** |
 
-The consequence worth recording: the two documented upgrade paths — whisper `medium` (+~0.9 GB)
-and Qwen3-4B-Instruct-2507 (+~0.6 GB) — are each individually affordable and are **not both**
-affordable alongside a browser and a desktop session. If R3 and R9 both bite, one of the two gets
-upgraded, not both.
+The consequence is now sharper than it looked at a 6.7 GB denominator: the two documented upgrade
+paths — whisper `medium` (+~1.0 GB) and Qwen3-4B-Instruct-2507 (+~0.6 GB) — are each individually
+affordable within ~1.9 GB of headroom and are **clearly not both** affordable alongside a browser
+and a desktop session. If R3 and R9 both bite, exactly one of the two gets upgraded.
 
 ### KD-7. Both AI layers sit behind provider interfaces whose default speaks OpenAI-compatible HTTP
 
@@ -277,7 +319,8 @@ registry** (indirection for a set of two).
 
 This is where the product's core promise is won or lost. Layers:
 
-**Layer 0 — transcription** (~8-15 s, unavoidable, bounded end-to-end by the 8.8 budget in KD-5).
+**Layer 0 — transcription** (measured 6.4-13.6 s, with a hard ~6.4 s floor even for a three-second
+sentence — see KD-5 — and bounded end-to-end by the 8.8 budget there).
 
 **Layer 1 — deterministic Spanish extractor**, sub-millisecond, no model:
 
@@ -325,7 +368,9 @@ appears. The LLM is never between David and his pre-filled form.
 transcribe` only returns text and a draft; creation goes through `POST /api/expenses` or `POST
 /api/journal` exactly as the manual path does (9.5, 10.4, 8.3, 8.6).
 
-Rejected: **LLM-only parsing** (adds 8-15 s to every capture and is unreliable on
+Rejected: **LLM-only parsing** (at the measured 26-36 tok/s prompt and 10-14 tok/s generation, a
+parse prompt plus a JSON field extraction adds **~10-14 s** to every capture, on top of the ~6.4 s
+transcription floor, and is unreliable on
 `catorce mil` — it attacks the app's reason for existing); **rules-only with no assist** (leaves
 category empty more often than necessary, costing a tap when the LLM could have saved it for
 free); **a fine-tuned local model** (no training capacity on this hardware, and A22-scale data).
@@ -358,8 +403,10 @@ A question flows through four deterministic stages before any generation:
    to this feature, and it would look like a good answer.
 2. **FactBuilder** — SQL aggregates for that range: total, per-category amounts and percentages,
    per-method totals, expense count, distinct days, top expenses; plus journal excerpts when the
-   domain includes the journal, under a **1,200-token budget** (prompt evaluation on this CPU is
-   ~40-100 tok/s — an unbounded journal context is the difference between 40 s and five minutes).
+   domain includes the journal, under a **1,200-token budget** (prompt evaluation measures 26-36
+   tok/s on this host, so every 100 tokens of context costs ~3-4 s before generation starts — an
+   unbounded journal context is the difference between a minute and never). See KD-6: this budget
+   is what keeps a journal question inside 11.12 and must not be raised.
 
    **Journal selection differs by job kind, and truncation is never silent:**
    - *Questions* — entries in range, newest first, until the budget is spent.
@@ -1026,8 +1073,8 @@ background, and cancels a running summary the moment either arrives — so the L
 run concurrently by design, which is what makes both 11.17 and 8.8 hold. Threads are capped at 6
 each so neither starves the desktop session. *Residual:* the arbiter cannot preempt work already
 inside Ollama's own request loop instantaneously; expect up to ~1 s of overlap while the
-cancellation lands. That is inside the 8.8 budget in KD-5, which already assumes the pessimistic
-2-4× realtime figure rather than a contention-free one.
+cancellation lands. KD-5's measured worst case of 13.6 s against a 20 s sidecar timeout absorbs
+that comfortably.
 
 **R5 — Whisper hallucinates on silence.** Spanish whisper models are known to emit boilerplate
 ("Subtítulos realizados por…") when given near-silence. Left unhandled, that becomes a journal
@@ -1047,15 +1094,18 @@ the text on screen, but David must retry while still connected. *Mitigation:* no
 this is PM's flagged assumption, not an oversight; a real offline queue is separate scope and would
 pull in conflict resolution the design deliberately does not have.
 
-**R8 — Python 3.14 on the host.** Wheels for it are unreliable. *Mitigation:* KD-3 pins 3.12 via
-`uv`. *Residual:* if `uv` cannot provision it, the fallback is running the API in a Docker image
-with a pinned Python — an accepted, documented detour that costs an afternoon, not a redesign.
+**R8 — CLOSED, 2026-08-05.** The Python 3.14 wheel risk is gone: `uv 0.12.2` provisioned CPython
+3.12.13 on this host and the stack builds against it. The Docker fallback is not needed.
 
-**R9 — 8.8's 30 s and 11.12's 120 s are measured on an unloaded machine.** These are the honest
-bars, and they were set knowing the hardware, but they have not been measured on this hardware
-with these models. *Mitigation:* the backend implementer should log `elapsed_ms` for every
-transcription and generation from day one, so the fallback ladder (whisper `small`→`base`, model
-3B→smaller) is driven by numbers rather than by feel at QA time.
+**R9 — RESOLVED BY MEASUREMENT, 2026-08-05.** The throughput figures behind 8.8 and 11.12 were
+estimates; they have now been benchmarked on this host with this stack (Ollama 0.32.6,
+whisper.cpp b0f6b6e, both models installed), and KD-5, KD-6 and KD-10 carry the measured numbers.
+Both bounds hold with margin: transcription worst case 13.6 s against 20 s, journal question
+~55-76 s against 110 s. *What remains:* the numbers are single-run benchmarks, not a p95 under
+contention, so the backend implementer should still log `elapsed_ms` for every transcription and
+generation from day one. *What changed in the ladder:* whisper `base` is 3.5× faster and its
+Spanish quality is **unvalidated** — the benchmark used English audio forced through `-l es`, which
+is no evidence about Spanish. That rung needs a real Spanish sample before it may be pulled.
 
 **R10 — Two implementers, one contract, no shared code.** The Interface Contract above is the only
 thing keeping the lanes in sync. *Mitigation:* the backend must serve `/openapi.json` and its
@@ -1125,8 +1175,9 @@ Left to the Implementers, inside the structural bounds above.
   with an `mkcert` LAN origin as the fallback that keeps 15.5 satisfiable (KD-2). This is why
   Tailscale is a design decision and not an ops detail.
 - *Whether the voice parse is LLM-driven.* Resolved as layered, rules-first, with the LLM excluded
-  from the capture critical path (KD-8). The deciding argument was latency: an LLM parse would add
-  8-15 s to every capture, attacking the exact friction the product exists to remove.
+  from the capture critical path (KD-8). The deciding argument was latency, and the measured rates
+  strengthened it: an LLM parse would add ~10-14 s on top of a ~6.4 s transcription floor,
+  attacking the exact friction the product exists to remove.
 - *What runs the periodic summary and what happens after the PC sleeps.* Resolved as an in-process
   scheduler with a boot catch-up scan over completed months, plus preemptible summary jobs (KD-12).
 - *How 11.2 is enforced rather than hoped for.* Resolved by computing every figure in SQL and
@@ -1165,13 +1216,27 @@ Left to the Implementers, inside the structural bounds above.
   a summed resident-memory table, with the context and output budgets tightened (2,000→1,200
   tokens, 320→220 answer tokens) so the corrected figures still fit 11.12.
 
+**Replaced by measurement on this host, 2026-08-05**
+- Every throughput and memory figure in KD-5, KD-6 and KD-10 is now **measured, not estimated**,
+  on the installed stack (Ollama 0.32.6, whisper.cpp b0f6b6e, `qwen2.5:3b-instruct-q4_K_M`,
+  `ggml-small-q5_1.bin`). The three corrections that changed a design fact rather than a number:
+  whisper encode is a **fixed cost per 30 s window** (~5.5 s) rather than a multiple of audio
+  length, so every transcription has a ~6.4 s floor; prompt evaluation is **26-36 tok/s**, below
+  even the corrected estimate, which is what makes KD-10's 1,200-token budget load-bearing; and
+  the RAM denominator is **5.3 GiB**, not 6.7 GB.
+- `whisper-cli --no-translate` **does not exist** in the current build. KD-5 now specifies `-l es`
+  alone, which is what 8.7 needs.
+
 **Open for verification, not blocking**
 - *Which phone OS David uses.* The design covers Android Chrome and iOS Safari; confirming it lets
   the frontend drop one audio branch and lets QA test the real target. See R1. Folded into the
   Approve Plan gate.
-- *Measured latency of `small` whisper and Qwen2.5-3B on this exact host.* Instrument from day one
-  (R9); every figure in KD-5 and KD-6 is an estimate, the fallback ladder is already chosen, and
-  only the trigger point is unknown.
+- *Spanish accuracy of whisper `base`.* Its speed advantage is measured (1.8 s vs 6.4 s on the
+  same clip) but its quality was benchmarked only on English audio forced through `-l es`, so
+  nothing is known about its Spanish. The R9 ladder may not use that rung until someone transcribes
+  a real Spanish sample containing an amount and a payment method and confirms 9.6 and 9.7.
+- *p95 under contention.* The KD-5/KD-6 figures are single-run benchmarks on an otherwise idle
+  machine. Log `elapsed_ms` from day one.
 
 **For the human at Approve Plan, not the Architect's to settle**
 - *Tailscale as a third-party dependency* against a literal reading of 12.4 and 15.3 — see R11.
