@@ -2,35 +2,29 @@
 
 ## Summary
 
-A single-user, self-hosted web app: **React + TypeScript SPA** served as static files by a
-**Python FastAPI backend** over **SQLite (WAL)**, with two local AI sidecars —
-**whisper.cpp `whisper-server`** for Spanish transcription and **Ollama running
-Qwen2.5-3B-Instruct Q4_K_M** for insights. Everything is one machine, four processes,
-`127.0.0.1`-bound, managed by systemd user units.
-
-Three decisions carry the design:
+A single-user, self-hosted web app: **React + TypeScript SPA** served as static files by a **Python
+FastAPI backend** over **SQLite (WAL)**, with two local AI sidecars — **whisper.cpp** for Spanish
+transcription and **Ollama running Qwen2.5-3B-Instruct Q4_K_M** for insights. One machine, four
+processes, loopback-bound, systemd user units. Three decisions carry it:
 
 1. **Tailscale provides HTTPS, and HTTPS is what makes voice possible at all.** `getUserMedia`
-   requires a secure context; a plain `http://` LAN or VPN address is not one. `tailscale serve`
-   terminates TLS with a real, phone-trusted cert for a `*.ts.net` name that is reachable only
-   from David's own devices. This single choice satisfies away-from-home access (13.4), the
-   never-public rule (13.6), and phone microphone access simultaneously.
-2. **The voice→expense parse is rule-driven first, LLM-assisted only for category.** Amount,
-   payment method and description come out of a deterministic Spanish parser in milliseconds, so
-   the pre-filled form appears the instant the transcript does. The 3B model is never in the
-   capture critical path; it may only fill an otherwise-empty category, asynchronously, with a
-   6-second cap.
-3. **The LLM never computes a number.** All figures are aggregated in SQL, injected as facts, and
-   the generated text is rejected if it contains a figure that is not in the fact set. That is what
-   makes 11.2 ("figures match the Finances screen") enforceable rather than hopeful.
+   needs a secure context, which a plain `http://` LAN or VPN address is not. `tailscale serve`
+   terminates TLS with a phone-trusted `*.ts.net` cert reachable only from David's devices —
+   satisfying away-from-home access (13.4), the never-public rule (13.6), and the microphone at once.
+2. **The voice→expense parse is rules-first; the LLM assists only with category.** A deterministic
+   Spanish parser fills amount, payment method and description in milliseconds, so the pre-filled
+   form appears the instant the transcript does. The model is never in the capture path.
+3. **The LLM never computes a number.** Figures come from SQL, are injected as facts, and generated
+   text carrying a figure outside the fact set is rejected — which makes 11.2 enforceable.
 
-Both AI layers sit behind provider interfaces whose default adapters speak the OpenAI-compatible
-wire format, so replacing local inference is a base-URL change.
+Both AI layers sit behind provider interfaces speaking the OpenAI-compatible wire format, so
+replacing local inference is a base-URL change. One **InferenceArbiter** governs both sidecars:
+transcription and questions preempt the background monthly summary, so the runtimes never contend.
 
-**The biggest risk is mobile voice capture.** Secure context, `MediaRecorder` codec differences
-between Android Chrome and iOS Safari, and Tailscale's behaviour with home internet down (15.5)
-all converge on one feature. Section *Risks* names the mitigations; test voice on the real phone
-before anything else is trusted.
+**The biggest risk is mobile voice capture** — secure context, `MediaRecorder` differences between
+Android and iOS, and Tailscale with home internet down (15.5) all converge on one feature; test it
+on the real phone first. **R11 needs the human**: Tailscale is the one third party here, against a
+literal reading of 12.4 and 15.3.
 
 ---
 
@@ -70,7 +64,7 @@ The app is served on two origins simultaneously:
 | Origin | Bind | Purpose |
 | --- | --- | --- |
 | `https://<host>.<tailnet>.ts.net` | `tailscale serve` → `127.0.0.1:8000` | primary; anywhere, any network |
-| `https://<host>.local:8443` | uvicorn TLS on `0.0.0.0:8443` | LAN fallback with an `mkcert` CA installed once on the phone |
+| `https://<LAN-IP>:8443` | uvicorn TLS bound to `${LAN_BIND_ADDR}:8443` | LAN fallback with an `mkcert` CA installed once on the phone |
 
 The LAN fallback exists specifically for **15.5** (home internet down, both devices on the private
 network). Tailscale nodes that are already up keep working over direct LAN endpoints with cached
@@ -81,8 +75,37 @@ Consequence for the frontend, and it is not optional: **every API call uses a re
 (`/api/...`). No base URL constant, no environment-specific origin, no CORS configuration
 anywhere. The same bundle must work under both origins unchanged.
 
+**How the fallback is actually reached.** No transparent failover is possible — a page served from
+origin A cannot silently retry origin B — so this is decided, not left to the implementer:
+
+1. **A second home-screen icon**, installed during setup, labelled distinctly (the frontend owns
+   the Spanish label; something that reads as "at home"). In addition, the "cannot reach your
+   server" state on the primary origin offers a plain link to the fallback origin — a navigation,
+   not a retry, which is the only thing that can cross an origin boundary.
+2. **The certificate names a fixed LAN IP, not `.local`.** mDNS resolution of `.local` from Android
+   Chrome is unreliable, so the setup script requires a DHCP reservation on the router and runs
+   `mkcert <LAN-IP> autonomos.local`, putting the IP in the SAN and the hostname in as a
+   convenience only. The address is stable because the reservation makes it stable.
+3. **Browser state is per-origin, and microphone permission is the one that matters.** Setup grants
+   microphone access on *both* origins once, at setup time, precisely so that 15.5's scenario does
+   not begin with a permission prompt. Nothing else is at stake: A15 puts no user data in the
+   client, so a cold TanStack cache on the fallback origin costs one fetch.
+
+**Reading of 13.7 this depends on, stated so PM can object:** 13.7 governs *routine daily use*,
+which runs on the primary origin with no extra step. Switching origins is a recovery action during
+an outage, not routine use. If PM reads 13.7 as covering outage recovery too, this design fails it
+and there is no mechanism that would not — origins cannot fail over transparently.
+
+**The fallback listener binds one interface, not all of them.** `LAN_BIND_ADDR` is the host's LAN
+address; it is never `0.0.0.0`. It runs continuously, because 15.5 can occur at any moment and a
+listener that must be started by hand during an outage is not a mechanism. It is unauthenticated
+by A6's deliberate choice, which makes the home LAN the access boundary for this port — so if the
+PC is ever attached to a network David does not control, `LAN_BIND_ADDR` should be unset and the
+fallback disabled. That is a config line, and the setup README must say so.
+
 Rejected: making Tailscale the only path (fails 15.5 on a cold start); making the LAN path
-primary (fails 13.4, away-from-home use).
+primary (fails 13.4, away-from-home use); binding the fallback to `0.0.0.0` (widens an
+unauthenticated surface onto every interface for no gain).
 
 ### KD-3. Backend: Python 3.12 (pinned) + FastAPI + Uvicorn, single worker
 
@@ -101,8 +124,8 @@ tables); **Flask** (fine, but no typed models or generated schema); **Docker for
 (RAM and disk overhead, model-path and audio-path friction, and Ollama-in-Docker duplicates model
 storage; kept as the documented escape hatch if `uv` fails on this host).
 
-Uvicorn runs with **exactly one worker**. The scheduler and the LLM semaphore are in-process; a
-second worker would duplicate both.
+Uvicorn runs with **exactly one worker**. The scheduler and the InferenceArbiter are in-process; a
+second worker would duplicate both, and two arbiters is the same as none.
 
 ### KD-4. Datastore: SQLite, WAL, `synchronous=FULL`, foreign keys on
 
@@ -127,8 +150,25 @@ table. Rejected Alembic: a dependency and a code-generation step for five tables
 A sidecar on `127.0.0.1:8081`, started with `-l es --no-translate` (8.7) and 6 threads. The API
 process POSTs 16 kHz mono WAV and gets text back.
 
-`small` is the size that fits the 30-second bound in 8.8. On 8 AVX2 cores it runs roughly 4-6×
-realtime, so a 30-second utterance lands around 6-10 seconds with headroom for contention.
+`small` q5_1 is ~0.6 GB resident and is the size that fits the 30-second bound in 8.8. **Estimate,
+not measurement** (see R9): at 6 threads on a Vega-class APU, expect roughly 2-4× realtime, so a
+30-second utterance lands around **8-15 s**, not the 4-6× a desktop CPU would give.
+
+**The 8.8 budget is end-to-end, and the client owns the clock.** 8.8 starts when capture ends, so
+the sidecar is only one term:
+
+| Segment | Budget |
+| --- | --- |
+| `decodeAudioData` + `OfflineAudioContext` resample + WAV encode on the phone | ≤ 3 s |
+| upload of ~960 KB over LTE | ≤ 4 s |
+| whisper sidecar (`STT_TIMEOUT_S=20`) | ≤ 20 s |
+| response + render | ≤ 1 s |
+| **worst case** | **28 s** |
+
+The client starts a wall clock at capture end and shows an explicit `transcription_timeout` failure
+at **28 s** regardless of what the server is doing (8.4, 8.8). Recording is hard-stopped at 30 s
+client-side; the server rejects audio over 32 s. If measured p95 breaches this, the ladder is
+whisper `small` → `base` (KD-5 rejected list) before anything else changes.
 
 Rejected:
 
@@ -147,10 +187,24 @@ Rejected:
 
 ### KD-6. LLM runtime: Ollama serving `qwen2.5:3b-instruct-q4_K_M`
 
-~2.0 GB of weights, ~2.6 GB resident at 4096 context, roughly 8-15 tokens/s on 8 cores. A
-250-token answer is therefore 20-35 s including prompt processing — inside the 120 s bound of
-11.12 with real margin. Qwen2.5-3B has the strongest Spanish of the models in this size class and
-follows "answer only from these facts" instructions reliably.
+~2.0 GB of weights, ~2.6 GB resident at 4096 context. Qwen2.5-3B has the strongest Spanish of the
+models in this size class and follows "answer only from these facts" instructions reliably.
+
+**Honest latency, corrected.** All figures below are **estimates, not measurements** (R9). On
+dual-channel DDR4 with an integrated GPU this model is memory-bandwidth-bound: expect **6-12
+tok/s** generation and **40-100 tok/s** prompt evaluation at 6 threads. Against the context
+budgets in KD-10:
+
+| Work | Prompt | Generate | Total |
+| --- | --- | --- | --- |
+| finance-only question (~500-token prompt, 220 out) | 5-13 s | 18-37 s | **23-50 s** |
+| journal question (1,200-token context, ~1,400 total, 220 out) | 14-35 s | 18-37 s | **32-72 s** |
+| monthly summary (~1,800-token prompt, 320 out) | 18-45 s | 27-53 s | **45-98 s** |
+
+All three fit inside 11.12's 120 s and inside `LLM_TIMEOUT_S=110`, and the summary is background
+work that nobody waits on (11.15). The margin is roughly half of what an optimistic reading would
+give, which is why the context budgets in KD-10 are 1,200 tokens rather than 2,000 and
+`LLM_MAX_TOKENS` for answers is 220. **Nobody downstream should plan against 35 s.**
 
 Rejected:
 
@@ -171,6 +225,23 @@ Rejected:
 `OLLAMA_KEEP_ALIVE=-1` keeps the model resident: a reload on this hardware costs several seconds
 and would land inside the user's wait.
 
+**Total resident-memory budget against the measured 6.7 GB available.** Both models are pinned in
+memory simultaneously and permanently, so this must add up rather than be reasoned about
+component by component:
+
+| Process | Resident |
+| --- | --- |
+| Ollama + Qwen2.5-3B Q4_K_M @ 4096 ctx (`KEEP_ALIVE=-1`) | ~2.6 GB |
+| whisper-server + `small` q5_1 | ~0.6 GB |
+| API process (CPython 3.12, FastAPI, SQLite page cache) | ~0.25 GB |
+| `tailscaled` | ~0.08 GB |
+| **total** | **~3.5 GB of 6.7 GB, leaving ~3.2 GB** |
+
+The consequence worth recording: the two documented upgrade paths — whisper `medium` (+~0.9 GB)
+and Qwen3-4B-Instruct-2507 (+~0.6 GB) — are each individually affordable and are **not both**
+affordable alongside a browser and a desktop session. If R3 and R9 both bite, one of the two gets
+upgraded, not both.
+
 ### KD-7. Both AI layers sit behind provider interfaces whose default speaks OpenAI-compatible HTTP
 
 Two internal interfaces, each with exactly one concrete adapter today:
@@ -184,9 +255,10 @@ Selected at startup from config:
 
 ```
 LLM_PROVIDER=openai_compatible   LLM_BASE_URL=http://127.0.0.1:11434/v1
-LLM_MODEL=qwen2.5:3b-instruct-q4_K_M   LLM_TIMEOUT_S=110   LLM_MAX_TOKENS=320
+LLM_MODEL=qwen2.5:3b-instruct-q4_K_M   LLM_TIMEOUT_S=110
+LLM_MAX_TOKENS_ANSWER=220        LLM_MAX_TOKENS_SUMMARY=320
 STT_PROVIDER=whispercpp_http     STT_BASE_URL=http://127.0.0.1:8081
-STT_MODEL=small                  STT_TIMEOUT_S=25
+STT_MODEL=small                  STT_TIMEOUT_S=20        MAX_AUDIO_S=32
 ```
 
 Because the default LLM adapter speaks the OpenAI chat-completions shape, Ollama, llama.cpp
@@ -205,7 +277,7 @@ registry** (indirection for a set of two).
 
 This is where the product's core promise is won or lost. Layers:
 
-**Layer 0 — transcription** (~6-10 s, unavoidable, bounded by 8.8).
+**Layer 0 — transcription** (~8-15 s, unavoidable, bounded end-to-end by the 8.8 budget in KD-5).
 
 **Layer 1 — deterministic Spanish extractor**, sub-millisecond, no model:
 
@@ -219,12 +291,22 @@ This is where the product's core promise is won or lost. Layers:
 - *Category* — the same matching against the user's *actual* categories plus a seeded Spanish
   lexicon (`uber`, `taxi`, `bus`, `gasolina` → `Transporte`; `almuerzo`, `café`, `restaurante` →
   `Comida`). Constrained to existing categories by construction (9.3).
-- *Description* — the full transcript verbatim.
+- *Description* — the transcript verbatim, trimmed on a word boundary to the 1,000-character
+  contract limit if longer, with `description_truncated: true` set on the draft. **Why this rather
+  than a bigger field:** 32 s of Colombian Spanish runs 500-800 characters and the old 500-cap
+  would have rejected a confirmed voice expense at the final step, on a field the user never
+  typed. The full transcript is always returned separately in `transcript`, so nothing is lost —
+  the user can paste back or edit before confirming.
 
 **Layer 2 — optional LLM category assist**, only when Layer 1 left category null. A separate,
 non-blocking request (`POST /api/expenses/suggest-category`) with `max_tokens=8`, a 6-second hard
 cap, and a prompt whose only legal outputs are the user's existing category names or `NINGUNA`.
 Anything not in that list is discarded and the field stays empty.
+
+Layer 1 and Layer 2 report provenance through **one** vocabulary — `"rules" | "llm" | "none"` —
+used identically by `ExpenseDraft.resolved_by` and by `/suggest-category`'s `source`. The client
+calls the assist endpoint exactly when `resolved_by.category == "none"`; there is no separate
+flag saying the same thing twice.
 
 **Latency consequence, which is the whole point:** the transcribe response carries the transcript
 *and* the rule-derived draft together. The user sees a filled form the moment the transcript
@@ -258,18 +340,57 @@ absence of a code path, not by a prompt instruction.
 
 A question flows through four deterministic stages before any generation:
 
-1. **QuestionRouter** (rules) — resolves the period from a Spanish lexicon (`este mes`, `julio`,
-   `la semana pasada`, `ayer`; default = current month) and the domain (finance keywords vs
-   journal keywords; both, or neither → both).
+1. **QuestionRouter** (rules) — resolves the period from a Spanish lexicon (`este mes`, `el mes
+   pasado`, `julio`, `julio de 2025`, `esta semana`, `la semana pasada`, `hoy`, `ayer`, `este
+   año`) and the domain (finance keywords vs journal keywords; both, or neither → both).
+
+   **A period it cannot resolve is a failure, not a default.** The router runs two passes: a
+   *temporal-cue detector* (month names, `semana`, `mes`, `año`, `día`, `quincena`, `trimestre`,
+   `desde`, `hasta`, `últimos`, `pasado`, `anterior`, any `20\d\d`) and the resolver above. If a
+   cue is present but nothing resolves — "en los últimos tres meses", "desde que empecé", "la
+   primera quincena" — the job terminates with `period_unrecognised` and the UI asks him to
+   rephrase. Only a question with **no** temporal cue at all defaults to the current month, and in
+   that case `facts.period_label` states the assumed period so the answer labels itself.
+
+   This exists because a correct figure for the wrong period is exactly the failure 11.11 guards
+   against, and NumericGuard cannot catch it — the number *is* in the fact set. Silently
+   answering about March when he asked about the last three months is the worst outcome available
+   to this feature, and it would look like a good answer.
 2. **FactBuilder** — SQL aggregates for that range: total, per-category amounts and percentages,
-   per-method totals, expense count, distinct days, top expenses; and for journal questions, the
-   entries in range newest-first, truncated to a **2,000-token budget** (prompt processing on CPU
-   is ~100-200 tok/s — an unbounded journal context is the difference between 30 s and 5 minutes).
+   per-method totals, expense count, distinct days, top expenses; plus journal excerpts when the
+   domain includes the journal, under a **1,200-token budget** (prompt evaluation on this CPU is
+   ~40-100 tok/s — an unbounded journal context is the difference between 40 s and five minutes).
+
+   **Journal selection differs by job kind, and truncation is never silent:**
+   - *Questions* — entries in range, newest first, until the budget is spent.
+   - *Monthly summaries* — `domain="both"` always (11.14 requires spending **and** journal). One
+     excerpt per day, oldest first, spread across the whole month, each entry trimmed to ~300
+     characters, until the budget is spent. Newest-first would make a summary of a month's writing
+     into a summary of its last week.
+   - Both record `journal_entries_considered`, `journal_entries_used` and `journal_truncated` in
+     `facts`. When `journal_truncated` is true the prompt requires the text to say it read part of
+     the period's writing, and the client can surface the two counts. A confidently partial answer
+     that does not admit it is partial is the failure mode here.
 3. **Insufficiency pre-check** — no expenses and no entries in range → return `insufficient_data`
    without calling the model at all (11.3, and it is instant).
 4. **NumericGuard** — after generation, every numeric token in the output must appear in the fact
    set after normalisation. A figure that does not is a hallucination. On violation: one retry with
    a stricter prompt, then an explicit failure (11.2, 11.11).
+
+**What is prompt-enforced rather than guarded, stated plainly so QA tests it as judgement.**
+NumericGuard covers wrong *numbers*. Two criteria have no mechanism behind them and are carried by
+the system prompt alone:
+
+- **11.1** — "no outside facts, advice, or general knowledge presented as being about the user."
+  Nothing detects *"deberías reducir tus gastos en restaurantes"*, which is a clean 11.1 failure
+  containing no number at all.
+- **11.7** — Spanish output. Nothing detects an English-drifting answer.
+
+Both are accepted as prompt-enforced. This is also the **one exception to KD-17**: LLM-generated
+text is the only user-visible string the frontend does not own, and it is the only place a
+non-Spanish string can reach a screen. If either drifts in practice, the response is the model
+ladder in KD-6, not a new guard — a classifier to police a 3B model would cost a second inference
+pass inside the same 120 s budget.
 
 Rejected: **letting the model read raw rows and do arithmetic** (a 3B model gets column sums wrong,
 and 11.2 makes that a defect, not a quirk); **an LLM-based router** (a second inference round trip
@@ -283,6 +404,18 @@ narrows).
 within 1 second", 11.12). The client polls once a second; the job row carries `elapsed_ms` and
 `partial_answer`, so the UI has something that visibly changes over time (constraint 25) and can
 even render text as it arrives. `DELETE` cancels (11.13).
+
+**A second question is rejected, not queued.** A22 allows one insight at a time and there is one
+user; if a question is already `queued` or `running`, `POST` returns `409 busy` and the client
+offers to cancel the running one. That is the only condition under which `busy` is emitted. The
+`queued` status therefore covers only the sub-second window between `202` and the arbiter picking
+the job up — never a wait behind another question.
+
+**11.12's clock starts at request receipt**, not at generation start, and the server enforces it
+from `insight_jobs.created_at`. `LLM_TIMEOUT_S=110` leaves ten seconds for arbitration and the
+response, so the 120 s bound holds end-to-end rather than nominally. Measuring from generation
+start would let the user wait indefinitely while the criterion still passed, which is the kind of
+compliance that fails a user.
 
 Rejected: **SSE or WebSocket token streaming.** More elegant on a desk, worse on a phone: a
 long-lived connection over mobile data drops, and worse, a dropped connection loses the job.
@@ -300,13 +433,37 @@ it in the background. Meanwhile 11.15 still holds, because the *previous* comple
 row in the database and `GET /api/insights/summaries/latest` reads it with no generation. If none
 has ever been produced, the endpoint returns an explicit `none` state (11.16).
 
-**LLM access is serialized by one semaphore** (A22). Summary jobs are **preemptible**: an
-on-demand question cancels an in-flight summary, which is re-queued from scratch. Without that, a
-question arriving mid-summary could wait 40 s before it even starts. Capture, editing and all views
-touch neither the LLM nor the semaphore, so 11.17 holds structurally.
+**An InferenceArbiter, not a bare semaphore, and it covers transcription too.** This is the
+correction that makes 11.17 true rather than asserted. A single arbiter in the API process governs
+*all* local inference — the LLM and whisper — in two priority classes:
 
-Rejected: **cron or a systemd timer** (a separate entry point with its own DB connection that
-cannot coordinate with the in-process semaphore — two generations at once on 8 cores is the
+- **Interactive**: voice transcription, on-demand insight questions. Never waits behind background
+  work.
+- **Background**: monthly summary generation. Runs only when nothing interactive is active.
+
+When an interactive job arrives, any in-flight **background** job is cancelled immediately and
+re-queued from scratch; the interactive job starts without waiting for it to finish. Summaries are
+monthly, restartable, and read by nobody at the moment they run, so throwing away partial work
+costs nothing a user can perceive.
+
+**Why this is not optional.** The earlier design serialized LLM against LLM only, which left
+whisper and Ollama competing for the same 8 cores. Voice expense capture *is* expense capture, so
+a summary that slows a transcription is a plain 11.17 failure — and, because the two share one
+cause, it is also the most likely way 8.8's budget breaks. One mechanism fixes both.
+
+**Restart thrashing is bounded.** A cancelled summary waits for a **60-second quiet period** — no
+transcription and no question — before restarting, so a run of back-to-back captures does not
+livelock it. A monthly job that starts an hour late is invisible; 11.15 is served by the
+*previous* month's stored row regardless.
+
+Capture, editing and all views touch SQLite only — no inference, no arbiter — so nothing in the
+read/write path can be blocked by generation at all.
+
+Rejected: **letting the two runtimes contend and calling it acceptable** (it is a descope of
+11.17, which is written as pass/fail, and it would have to go to the human as one); **thread
+partitioning instead of preemption** (4 threads each halves interactive speed permanently to solve
+a collision that happens a few times a month); **cron or a systemd timer** (a separate entry point
+with its own DB connection that cannot see the arbiter — two generations at once on 8 cores is the
 failure A22 exists to prevent); **APScheduler** (a dependency for one rule); **generate-on-open**
 (explicitly forbidden by 11.15).
 
@@ -321,6 +478,36 @@ Rejected: **Next.js / SSR** (a Node server alongside a Python one, for an app wi
 SEO surface); **Svelte or vanilla** (fine choices; React wins on the implementer's likely
 familiarity and on TanStack Query specifically); **a separately-hosted frontend** (a second origin,
 CORS, and a second thing to keep running).
+
+**A shell-only service worker is required — this reverses an earlier "no service worker".** 13.2
+says that when the phone cannot reach the server the system shows an explicit "cannot reach your
+server" state rather than a blank screen or a silent failure. A TanStack reachability banner only
+exists once the SPA has loaded. The most common real instance of 13.2 is David tapping the
+home-screen icon while the PC is suspended — and KD-4 says outright that it will be suspended —
+which without a cached shell produces Chrome's own network error page. That is precisely what 13.2
+forbids, and no other mechanism covers it: Vite's hashed filenames make incidental HTTP-cache
+survival unreliable.
+
+Its scope is fixed here and is deliberately narrow:
+
+- **Precaches the built shell only** — `index.html`, hashed JS/CSS, the self-hosted font, the
+  manifest and icons. Generated from the Vite build manifest, cache name keyed to the build hash,
+  `skipWaiting` + `clients.claim` so a new build takes effect on the next open.
+- **`/api/*` is `NetworkOnly`.** No API response is ever cached, ever served stale, ever
+  replayed. A stale total is worse than no total in a ledger.
+- **No background sync, no write queue, no offline mutation.** A capture attempted while
+  unreachable fails and keeps the text on screen (13.5), exactly as before.
+
+**This does not reopen R7 or contradict A15.** A15 rules out an *offline queue* — client-side
+storage of unsaved captures and the conflict resolution that follows. Caching a static shell so
+the app can render its own error state stores no user data and queues no writes. The app is
+exactly as offline-incapable as A15 intends; it just says so in Spanish instead of showing a
+browser error page.
+
+Rejected: **no service worker** (fails 13.2's primary case, as above); **a full offline-capable
+PWA with a write queue** (that is R7/A15 scope and would need conflict resolution this design does
+not have); **relying on HTTP cache headers** (hashed asset names and `index.html` revalidation
+make it unreliable exactly when it is needed).
 
 ### KD-14. Styling: CSS custom properties + CSS Modules; no UI framework, no chart library
 
@@ -363,15 +550,27 @@ added. The route renders a Spanish placeholder stating the module is not availab
 data-entry control, no empty list, no error (1.3, constraint 20). This is the entire Gym scope, and
 any backend work on Gym is scope creep to be rejected at review.
 
+**The capture bar is not rendered on `/gimnasio`.** 1.4 makes the two capture actions available
+"for the current module"; Gym has no capture, no endpoint and nothing to send. A voice or manual
+button there would be a data-entry control, which 1.3 forbids in as many words. The bottom
+navigation stays (constraint 11); the capture bar is a Finances-and-Journal affordance only.
+
 ### KD-17. Backend emits error codes; the frontend owns every Spanish string
 
-Error responses carry a machine `code` and, for validation, a `fields` array. The `message` field
-is a developer string and **must never be displayed**. All user-visible copy — labels, errors,
-empty states, placeholders — lives in the frontend.
+Error responses carry a machine `code`, a `fields` array for validation failures, and a `details`
+object for code-specific machine values that the frontend needs to compose a message (the count in
+an `in_use` warning is the only current case). The `message` field is a developer string and
+**must never be displayed**. All user-visible copy — labels, errors, empty states, placeholders —
+lives in the frontend.
+
+`fields[].reason` draws from a closed set of *reasons*; it never carries a value. A count, an
+identifier or a limit goes in `details`, never smuggled through `reason` where the frontend's
+reason→Spanish map cannot reach it.
 
 This exists because 1.5 and constraint 23 forbid mixed-language strings anywhere, and the single
 most common way that fails is a raw backend error surfacing in a toast. The error-code set below is
-closed; the frontend maps all of it.
+closed; the frontend maps all of it. The one string the frontend does not own is LLM-generated
+insight text — see the end of KD-10.
 
 ---
 
@@ -384,12 +583,12 @@ closed; the frontend maps all of it.
         │  HTTPS
         ▼
  ┌─────────────────────┐        (tailscale serve :443 → 127.0.0.1:8000)
- │  autonomos-api      │        (uvicorn TLS 0.0.0.0:8443, LAN fallback)
+ │  autonomos-api      │        (uvicorn TLS ${LAN_BIND_ADDR}:8443, LAN fallback)
  │  FastAPI, 1 worker  │
  │  ├ HTTP API /api/*  │
  │  ├ static SPA /     │
  │  ├ scheduler task   │
- │  └ LLM semaphore    │
+ │  └ InferenceArbiter │  ← governs whisper AND Ollama (KD-12)
  └──┬────────┬──────┬──┘
     │        │      │
     │        │      └── SQLite  data/autonomos.db  (WAL)
@@ -425,20 +624,37 @@ backend env var so the frontend implementer never needs to touch backend code, a
 | `repo/` | Query layer for expenses, journal, categories, payment methods, summaries, jobs. Owns the month/day aggregation and largest-remainder percentage rounding. |
 | `parsing/` | Spanish numeral grammar, amount extraction, alias matching for categories and payment methods. Pure functions, no I/O, no model. |
 | `providers/` | `LLMProvider` and `TranscriptionProvider` interfaces plus the `openai_compatible` and `whispercpp_http` adapters. **The only place vendor names appear.** |
-| `insights/` | QuestionRouter, FactBuilder, PromptBuilder, NumericGuard, job runner, LLM semaphore. |
+| `insights/` | QuestionRouter, FactBuilder, PromptBuilder, NumericGuard, job runner. |
+| `arbiter/` | The InferenceArbiter (KD-12): two priority classes over both sidecars, background preemption, the 60-second quiet period. Every call into `providers/` passes through it. |
 | `scheduler/` | Boot catch-up scan, 15-minute tick, monthly summary enqueue, nightly DB snapshot. |
 | `clock/` | Local-day and local-month arithmetic in `APP_TZ`. The **only** place calendar boundaries are computed (4.8). |
 
 ### Frontend structure
 
-Route shells: `/finanzas` (default landing, 1.2), `/finanzas/mes`, `/diario`, `/gimnasio`,
-`/insights`. Persistent bottom navigation with the three destinations (1.1, constraint 11) and a
-per-module capture bar in the thumb zone with *voice* and *manual* (1.4, constraint 9).
+Route shells: `/finanzas` (default landing, 1.2), `/finanzas/mes`, `/finanzas/analisis`, `/diario`,
+`/gimnasio`. Persistent bottom navigation with the three destinations (1.1, constraint 11) and a
+per-module capture bar in the thumb zone with *voice* and *manual* (1.4, constraint 9) — on
+Finances and Journal only, never on `/gimnasio` (KD-16).
+
+**The insights area lives inside Finances; it is not a fourth destination.** 1.1 requires *exactly*
+three top-level destinations and constraint 11 requires those three from every screen, so insights
+cannot be a tab. It is `/finanzas/analisis`, reached by a labelled control on the Finances screens
+— **and** by a second control in Journal that navigates to the same route, because 11.9 makes
+journal questions a first-class use and a journal question discoverable only from Finances is a
+question nobody asks. Both are in-module affordances; the navigation stays three.
+
+Route segments are Spanish throughout. A URL is visible in the phone's address bar, and 1.5 covers
+text shown anywhere in the interface; one English segment among four Spanish ones is free to avoid
+now and awkward to change once bookmarked.
 
 Cross-cutting frontend concerns, called out because they are easy to under-scope:
 
-- **`audio/`** — permission handling, recording with a visible elapsed indicator, cancel, the
-  `decodeAudioData` → 16 kHz mono → WAV pipeline, and `AbortController` on the upload so 8.9 works.
+- **`audio/`** — permission handling, recording with a visible elapsed indicator and a hard stop at
+  30 s, cancel, the `decodeAudioData` → 16 kHz mono → WAV pipeline, `AbortController` on the upload
+  so 8.9 works, and the client-side 28-second failure clock from KD-5. During transcription it runs
+  a **phase-plus-elapsed indicator** — preparing audio, uploading, transcribing, with seconds
+  counting — because the request is one blocking round trip with no server-side progress channel,
+  and constraint 25 rejects a spinner that could equally mean "hung".
 - **`format/`** — the single Colombian peso formatter (`$14.000`) and the single amount *input*
   parser accepting `14.000` / `14000` / `14 000` (2.4, 2.5, constraint 21). One implementation,
   used everywhere.
@@ -450,7 +666,7 @@ Cross-cutting frontend concerns, called out because they are easy to under-scope
 
 ### Data model
 
-Six tables plus two alias tables. Full DDL is the backend implementer's; the shape is fixed here.
+Seven tables plus two alias tables. Full DDL is the backend implementer's; the shape is fixed here.
 
 - **`categories`** / **`payment_methods`** — `id`, `name`, `sort_order`, `archived_at`,
   `created_at`. Uniqueness on `name` **among non-archived rows only**.
@@ -464,12 +680,21 @@ Six tables plus two alias tables. Full DDL is the backend implementer's; the sha
 - **`journal_entries`** — `id`, `text TEXT NOT NULL`, `written_at TEXT (ISO-8601 local with
   offset)`, `source`, `created_at`, `updated_at`. Separate rows always; nothing merges (6.3).
 - **`summaries`** — `id`, `period_kind ('month')`, `period_key ('YYYY-MM')` UNIQUE, `status
-  ('pending'|'generating'|'ready'|'empty'|'failed')`, `text`, `facts_json`, `model`,
-  `generated_at`, `created_at`.
+  ('generating'|'ready'|'empty'|'failed')`, `text`, `facts_json`, `model`, `generated_at`,
+  `created_at`. There is no `pending` status: a month that should have a summary and has no row
+  *is* pending, which is what the scheduler's catch-up scan looks for. On the wire, `status:
+  "none"` from `/latest` means "no row exists at all" and is the only response state without a
+  corresponding row.
 - **`insight_jobs`** — `id (uuid)`, `question`, `status ('queued'|'running'|'done'|'failed'|
   'cancelled')`, `partial_answer`, `answer`, `facts_json`, `error_code`, `created_at`,
   `started_at`, `finished_at`. Persisted so a job survives a page reload (13.3).
 - **`meta`** — `key`/`value`, holds `schema_version`.
+
+**`source` is stored but never rendered.** 9.5 and 10.4 require a voice-captured record to be
+indistinguishable from a typed one. `source` is accepted on `POST` and kept for diagnostics, and
+it is **omitted from every expense and journal response body and from both CSV exports** — it
+appears only in the full JSON export, which is an archival dump and not a rendered list. A field
+present in the contract is a field a component will eventually display; the fix is to not send it.
 
 **Nothing is ever hard-deleted by the system.** Categories and payment methods archive (3.4);
 expenses and journal entries are deleted only by explicit user action (14.3). Because categories
@@ -500,13 +725,19 @@ use **relative paths** (KD-2).
 ```json
 { "error": { "code": "validation",
              "message": "developer string, never displayed",
-             "fields": [ { "field": "amount_cop", "reason": "must_be_positive" } ] } }
+             "fields": [ { "field": "amount_cop", "reason": "must_be_positive" } ],
+             "details": {} } }
 ```
+
+`fields` is present only for `validation`. `details` is an optional object of code-specific machine
+values the frontend needs to compose Spanish copy; today its only use is `in_use`, which carries
+`{ "affected_expenses": int }`. A count, limit or identifier goes here — never inside `reason`,
+whose values are a closed vocabulary the frontend maps directly.
 
 **Closed error-code set** — the frontend maps all of these to Spanish copy:
 `validation` · `not_found` · `conflict` · `in_use` · `audio_invalid` · `audio_too_long` ·
 `transcription_failed` · `transcription_timeout` · `llm_unavailable` · `llm_timeout` ·
-`insufficient_data` · `unverifiable_figures` · `busy` · `internal`.
+`insufficient_data` · `unverifiable_figures` · `period_unrecognised` · `busy` · `internal`.
 
 **Field `reason` values** for `validation`: `required` · `must_be_positive` · `not_an_integer` ·
 `too_long` · `future_date` · `blank` · `unknown_id` · `duplicate_name`.
@@ -545,7 +776,7 @@ use **relative paths** (KD-2).
 ### DELETE /api/categories/{id}
 - query:    `confirm` boolean, default `false`
 - response: `200 { "archived": true, "affected_expenses": int }`
-- errors:   `409 in_use { "error": { "code": "in_use", "fields": [ { "field": "affected_expenses", "reason": "<count>" } ] } }` when in use and `confirm` is not `true`
+- errors:   `409 { "error": { "code": "in_use", "details": { "affected_expenses": int } } }` when in use and `confirm` is not `true` — the count lives in `details` so the frontend can compose the warning 3.4 requires
 - notes:    always an archive, never a row deletion; archived categories vanish from selection and stay attached to historical expenses
 - requirements: 3.4
 
@@ -554,10 +785,10 @@ use **relative paths** (KD-2).
 - requirements: 3.1, 3.2, 3.3, 3.4
 
 ### POST /api/expenses
-- request:  `{ "amount_cop": int (>0), "category_id": int, "payment_method_id": int, "spent_on": date? (default: today in APP_TZ), "description": string? (0..500), "source": "manual"|"voice" (default "manual") }`
-- response: `201 { "id": int, "amount_cop": int, "category_id": int, "category_name": string, "payment_method_id": int, "payment_method_name": string, "spent_on": date, "description": string|null, "source": string, "created_at": iso8601, "updated_at": iso8601 }`
-- errors:   `400 validation` — `amount_cop` `required`/`must_be_positive`/`not_an_integer`; `category_id` `required`/`unknown_id`; `payment_method_id` `required`/`unknown_id`; `spent_on` `future_date`
-- notes:    the client sends an integer; it owns parsing `14.000`/`14000`/`14 000` into `14000`. A voice-confirmed expense uses this exact endpoint with `source:"voice"` and is otherwise indistinguishable.
+- request:  `{ "amount_cop": int (>0), "category_id": int, "payment_method_id": int, "spent_on": date? (default: today in APP_TZ), "description": string? (0..1000), "source": "manual"|"voice" (default "manual") }`
+- response: `201 { "id": int, "amount_cop": int, "category_id": int, "category_name": string, "payment_method_id": int, "payment_method_name": string, "spent_on": date, "description": string|null, "created_at": iso8601, "updated_at": iso8601 }`
+- errors:   `400 validation` — `amount_cop` `required`/`must_be_positive`/`not_an_integer`; `category_id` `required`/`unknown_id`; `payment_method_id` `required`/`unknown_id`; `spent_on` `future_date`; `description` `too_long`
+- notes:    the client sends an integer; it owns parsing `14.000`/`14000`/`14 000` into `14000`. `description` is 1000 characters so a full spoken sentence survives confirmation (KD-8) rather than failing validation on a field the user never typed. `source` is **request-only**: it is stored and never returned, so a voice expense is indistinguishable from a manual one in every response body.
 - requirements: 2.1, 2.2, 2.3, 2.4, 2.6, 2.7, 3.5, 9.5
 
 ### GET /api/expenses
@@ -599,9 +830,9 @@ use **relative paths** (KD-2).
 
 ### POST /api/journal
 - request:  `{ "text": string (non-blank after trim, no maximum), "source": "manual"|"voice" (default "manual") }`
-- response: `201 { "id": int, "text": string, "written_at": iso8601, "source": string, "created_at": iso8601, "updated_at": iso8601 }`
+- response: `201 { "id": int, "text": string, "written_at": iso8601, "created_at": iso8601, "updated_at": iso8601 }`
 - errors:   `400 validation` — `text` `blank`
-- notes:    text is stored byte-exact: line breaks, blank lines, accents, ñ, ¿ and ¡ all survive round-trip, and there is no truncation at any length. Each submission is a new row; nothing merges with an earlier entry on the same day.
+- notes:    text is stored byte-exact: line breaks, blank lines, accents, ñ, ¿ and ¡ all survive round-trip, and there is no truncation at any length. Each submission is a new row; nothing merges with an earlier entry on the same day. `source` is request-only and never returned, so a spoken entry is indistinguishable from a typed one in the list (10.4).
 - requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 10.4
 
 ### GET /api/journal
@@ -618,51 +849,53 @@ use **relative paths** (KD-2).
 
 ### POST /api/voice/transcribe
 - request:  `multipart/form-data`
-  - `audio` — WAV, RIFF PCM 16-bit little-endian, **16000 Hz, mono**, ≤ 40 s, ≤ 2 MB
+  - `audio` — WAV, RIFF PCM 16-bit little-endian, **16000 Hz, mono**, ≤ 32 s (`MAX_AUDIO_S`), ≤ 2 MB
   - `context` — `"expense"` | `"journal"` | `"question"`
 - response: `200 { "transcript": string, "audio_ms": int, "elapsed_ms": int, "draft": ExpenseDraft|null }`
 - `ExpenseDraft` (present only when `context="expense"`):
-  `{ "amount_cop": int|null, "category_id": int|null, "category_name": string|null, "payment_method_id": int|null, "payment_method_name": string|null, "description": string, "needs_category_assist": bool, "resolved_by": { "amount": "rules"|"none", "category": "rules"|"none", "payment_method": "rules"|"none" } }`
+  `{ "amount_cop": int|null, "category_id": int|null, "category_name": string|null, "payment_method_id": int|null, "payment_method_name": string|null, "description": string (≤1000), "description_truncated": bool, "resolved_by": { "amount": "rules"|"llm"|"none", "category": "rules"|"llm"|"none", "payment_method": "rules"|"llm"|"none" } }`
 - errors:   `415 audio_invalid` (not the required WAV shape); `413 audio_too_long`; `422 transcription_failed` (nothing usable, silence, or a known whisper silence-hallucination); `504 transcription_timeout`; `503 llm_unavailable` is **never** returned here — this endpoint does not call the LLM
-- notes:    audio is held in memory and forwarded to the sidecar; it is never written to disk and never leaves the host. For `journal` and `question` the transcript is returned verbatim with no rewriting, summarising, or translation. A client abort (`AbortController`) cancels sidecar work. **This endpoint writes nothing to the database.**
+- notes:    audio is held in memory and forwarded to the sidecar; it is never written to disk and never leaves the host. For `journal` and `question` the transcript is returned verbatim with no rewriting, summarising, or translation. A client abort (`AbortController`) cancels sidecar work. **This endpoint writes nothing to the database.** `draft.description` is the transcript trimmed to 1000 characters on a word boundary, with `description_truncated` set — the untrimmed text is always in `transcript`. `resolved_by.<field> == "none"` is the single signal that a field needs input; the client calls `/suggest-category` when `resolved_by.category == "none"`. The client's own 28-second clock (KD-5) governs 8.8, not this response.
 - requirements: 8.2, 8.3, 8.4, 8.6, 8.7, 8.8, 8.9, 9.1, 9.2, 9.6, 9.7, 10.1, 10.2, 11.10, 15.1
 
 ### POST /api/expenses/parse
 - request:  `{ "text": string }`
 - response: `200 ExpenseDraft` (same shape as above)
-- notes:    the rule layer only, no model, sub-millisecond. Exists so a typed sentence takes the same path as a spoken one, and so the parser is testable without audio.
-- requirements: 9.1, 9.2, 9.6, 9.7
+- notes:    the rule layer only, no model, sub-millisecond. It exists as a test seam: the Spanish numeral grammar and alias matching behind 9.1/9.2/9.6/9.7 must be testable without audio, and QA needs a way to exercise `catorce mil` without recording it. **The frontend must not expose a typed natural-language expense path** — every criterion in Requirement 9 begins "WHEN the user *speaks*", and a second, untested capture mode is not in scope.
+- requirements: none — internal test seam for the parser behind 9.1, 9.2, 9.6, 9.7; those criteria are served by `/api/voice/transcribe`
 
 ### POST /api/expenses/suggest-category
 - request:  `{ "text": string }`
 - response: `200 { "category_id": int|null, "category_name": string|null, "source": "rules"|"llm"|"none" }`
 - errors:   never fails the caller — an unavailable or slow model yields `{ "category_id": null, "source": "none" }` with `200`
-- notes:    hard 6 s cap, `max_tokens=8`. The result is validated against the user's existing categories; anything else is discarded. The client applies it **only if the category field is still untouched**, labelled *sugerido*.
+- notes:    hard 6 s cap, `max_tokens=8`. `source` uses the same `"rules"|"llm"|"none"` vocabulary as `ExpenseDraft.resolved_by`, so the client can merge the result into the draft without translating between two spellings of one concept. The result is validated against the user's existing categories; anything else is discarded. The client applies it **only if the category field is still untouched**, labelled *sugerido*. This call runs at interactive priority (KD-12) and does not wait behind a summary.
 - requirements: 9.2, 9.3
 
 ### POST /api/insights/questions
 - request:  `{ "question": string (1..500, non-blank), "source": "text"|"voice" }`
 - response: `202 { "job_id": string (uuid), "status": "queued", "created_at": iso8601 }`
-- errors:   `400 validation`; `503 llm_unavailable` when the provider health check is failing
-- notes:    returns immediately so the client can show a working state inside 1 second. Insights are strictly read-only — no handler on this path writes to `expenses` or `journal_entries`.
+- errors:   `400 validation`; `503 llm_unavailable` when the provider health check is failing; `409 busy` when a question is already `queued` or `running` — the only condition that emits `busy`
+- notes:    returns immediately so the client can show a working state inside 1 second. A22 allows one question at a time, so a second is rejected rather than queued and the client offers to cancel the running one. **The 120-second bound of 11.12 is measured from `created_at`, not from generation start**, and the server enforces it. Insights are strictly read-only — no handler on this path writes to `expenses` or `journal_entries`.
 - requirements: 11.5, 11.6, 11.8, 11.9, 11.10, 11.12
 
 ### GET /api/insights/questions/{job_id}
 - response: `200 { "job_id": string, "status": "queued"|"running"|"done"|"failed"|"cancelled",
              "question": string, "elapsed_ms": int, "partial_answer": string|null, "answer": string|null,
-             "facts": { "period_label": string, "period_start": date, "period_end": date, "domain": "finances"|"journal"|"both",
+             "facts": { "period_label": string, "period_start": date, "period_end": date, "period_assumed": bool,
+                        "domain": "finances"|"journal"|"both",
                         "total_cop": int|null, "expense_count": int|null,
                         "by_category": [ { "name": string, "amount_cop": int, "percent": int } ]|null,
-                        "journal_entry_count": int|null }|null,
+                        "journal_entries_considered": int|null, "journal_entries_used": int|null,
+                        "journal_truncated": bool }|null,
              "error_code": string|null, "created_at": iso8601, "finished_at": iso8601|null }`
 - errors:   `404 not_found`
-- notes:    poll at ~1 s. `elapsed_ms` and `partial_answer` both change over time, so the UI has genuine progress rather than a static spinner. Terminal `error_code` values: `insufficient_data` (too little recorded data to say anything), `unverifiable_figures` (a figure was produced that the recorded data does not support — surfaced as "cannot answer", never as a fabricated number), `llm_timeout` (hard stop at 120 s), `llm_unavailable`. `answer` is always Spanish and derives only from the user's own records. `facts` are the verified figures the answer was built from.
+- notes:    poll at ~1 s. `elapsed_ms` and `partial_answer` both change over time, so the UI has genuine progress rather than a static spinner. Terminal `error_code` values: `insufficient_data` (too little recorded data to say anything), `period_unrecognised` (the question names a period the router cannot resolve — answering about a different period would be exactly the fabrication 11.11 forbids), `unverifiable_figures` (a figure was produced that the recorded data does not support — surfaced as "cannot answer", never as a fabricated number), `llm_timeout` (hard stop at 120 s from `created_at`), `llm_unavailable`. `period_assumed` is true when the question named no period and the current month was used, so the client can label what it answered about. `journal_truncated` with the two counts tells the client the context was cut, which the answer text is also required to admit. `answer` being Spanish and free of outside facts (11.7, 11.1) is **prompt-enforced, not guarded** — see the end of KD-10.
 - requirements: 11.1, 11.2, 11.3, 11.5, 11.7, 11.8, 11.9, 11.11, 11.12
 
 ### DELETE /api/insights/questions/{job_id}
 - response: `204` no body
 - errors:   `404 not_found`
-- notes:    stops generation and releases the LLM semaphore. Saved data is untouched — there was never anything to touch.
+- notes:    stops generation and releases the arbiter. Saved data is untouched — there was never anything to touch.
 - requirements: 11.6, 11.13
 
 ### GET /api/insights/summaries/latest
@@ -671,13 +904,8 @@ use **relative paths** (KD-2).
 - response: `200 { "status": "empty", "period_key": "YYYY-MM", "period_label": string }` — the period completed with no data
 - response: `200 { "status": "none" }` — no summary has ever been produced
 - response: `200 { "status": "failed", "period_key": "YYYY-MM", "error_code": string }`
-- notes:    **reads a stored row; never triggers generation.** Always returns instantly. The four non-`ready` states are distinct on the wire precisely so the UI can render them as three distinguishable surfaces plus a failure.
+- notes:    **reads a stored row; never triggers generation.** Always returns instantly. The four non-`ready` states are distinct on the wire precisely so the UI can render them as three distinguishable surfaces plus a failure. `status: "none"` is the only state with no corresponding row. The summary always covers spending **and** journal (`facts.domain` is always `"both"`, journal excerpts selected per KD-10 stage 2), and `facts.journal_truncated` says when a month's writing did not fit.
 - requirements: 11.14, 11.15, 11.16, 11.18, 11.7
-
-### GET /api/insights/summaries
-- query:    `limit` int ≤12
-- response: `200 { "items": [ summary objects, newest period first ] }`
-- requirements: 11.15, 11.18
 
 ### GET /api/export
 - response: `200 application/json`, `Content-Disposition: attachment` — a lossless dump: `{ "exported_at": iso8601, "schema_version": int, "categories": [...], "payment_methods": [...], "expenses": [...], "journal_entries": [...], "summaries": [...] }`
@@ -685,19 +913,21 @@ use **relative paths** (KD-2).
 
 ### GET /api/export/expenses.csv · GET /api/export/journal.csv
 - response: `200 text/csv; charset=utf-8` with a UTF-8 BOM, `Content-Disposition: attachment`
-- notes:    expenses columns `id,spent_on,amount_cop,category,payment_method,description,source,created_at`; journal columns `id,written_at,text,source`. Category and payment method are written as **names**, so the file is readable with no reference to this app.
-- requirements: 14.2
+- notes:    expenses columns `id,spent_on,amount_cop,category,payment_method,description,created_at`; journal columns `id,written_at,text`. Category and payment method are written as **names**, so the file is readable with no reference to this app. `source` is omitted (9.5, 10.4). Each file holds half the data, so **neither satisfies 14.2 alone** — `GET /api/export` does.
+- requirements: none — spreadsheet convenience alongside the JSON dump that satisfies 14.2; flagged for the human at Approve Plan as keep-or-cut
 
 ### Client-side contract (no server endpoint)
 
 These are frontend-only obligations. They are listed here so requirement coverage is computable
 across the whole design, not only across the HTTP surface.
 
-- **App shell** — three top-level destinations always visible and one interaction away; the app
-  lands on Finances/Today with no splash, selection, or setup step; both capture actions available
-  within the current module. `requirements: 1.1, 1.2, 1.4`
+- **App shell** — exactly three top-level destinations, always visible and one interaction away;
+  the app lands on Finances/Today with no splash, selection, or setup step; both capture actions
+  available within the current module, on Finances and Journal. The insights area is reached from
+  inside Finances and Journal at `/finanzas/analisis` and is **not** a fourth destination.
+  `requirements: 1.1, 1.2, 1.4, 11.15`
 - **Gym placeholder** — a route with a Spanish "not available yet" message, no data-entry control,
-  no empty list, no error. No API call of any kind. `requirements: 1.3`
+  no empty list, no error, **and no capture bar**. No API call of any kind. `requirements: 1.3`
 - **Spanish everywhere** — all copy in the frontend, including the error-code map; no backend
   `message` field is ever rendered. `requirements: 1.5`
 - **Amount input and display** — one parser accepting `14.000` / `14000` / `14 000` → `14000`; one
@@ -715,14 +945,19 @@ across the whole design, not only across the HTTP surface.
   when the user submits the form. `requirements: 8.6`
 - **Edited values win** — a field the user changed is sent as edited; a late category suggestion
   never overwrites a touched field. `requirements: 9.4, 10.3`
-- **Live waiting states** — transcription and insight waits show progress that visibly changes;
-  waits over ~10 s offer cancel and say the work is happening on the user's own computer; nothing
-  implies an instant AI response. `requirements: 11.5, 11.12, 11.13`
-- **Reachability** — a designed "no puedo alcanzar tu servidor" state in plain language; automatic
-  recovery when the server returns, with nothing lost and no reinstall; a failed save keeps the
-  typed text or transcript on screen for retry. `requirements: 13.2, 13.3, 13.5`
+- **Live waiting states** — insight waits render `elapsed_ms` and `partial_answer` from the poll;
+  transcription waits render a **client-side** phase-plus-elapsed indicator, since that request has
+  no server progress channel; both visibly change rather than spinning. Waits over ~10 s offer
+  cancel and say the work is happening on the user's own computer; nothing implies an instant AI
+  response. `requirements: 8.8, 11.5, 11.12, 11.13`
+- **Reachability** — a designed "no puedo alcanzar tu servidor" state in plain language, which
+  **renders on a cold open** because the service worker has the shell cached; automatic recovery
+  when the server returns, with nothing lost and no reinstall; a failed save keeps the typed text
+  or transcript on screen for retry; the state also offers a link to the LAN fallback origin
+  (KD-2). `requirements: 13.2, 13.3, 13.5`
 - **Browser-only delivery** — a web app plus a web-app manifest for home-screen install; no app
-  store, no service worker. `requirements: 13.1`
+  store; a **shell-only service worker** that precaches the built assets and treats `/api/*` as
+  `NetworkOnly`, with no write queue and no cached API responses (KD-13). `requirements: 13.1`
 
 ### Non-endpoint guarantees
 
@@ -733,15 +968,23 @@ by an environment test; they are enumerated so no criterion is left unowned.
   npm/PyPI packages) is free and requires no payment instrument or account at any step, and no
   function depends on a remote service that could begin charging or shut down.
   `requirements: 12.1, 12.2, 12.4`
-- **Summary generation never gets in the user's way** — capture, editing, and every view read and
-  write only SQLite and never acquire the LLM semaphore, so a summary generating in the background
-  cannot block, slow, or interrupt them; and an on-demand question preempts an in-flight summary
-  rather than queueing behind it. `requirements: 11.17`
-- **Never publicly reachable** — sidecars bind `127.0.0.1`; the API binds `127.0.0.1` plus the LAN
-  TLS port; `tailscale serve` (not Funnel) is the only remote path, restricted to David's tailnet.
-  `requirements: 13.6`
+- **Summary generation never gets in the user's way** — two mechanisms, because two things could
+  get in the way. (1) Capture, editing and every view touch SQLite only; they never enter the
+  InferenceArbiter, so nothing in the read/write path can be blocked by generation at all. (2)
+  **Voice** capture does use inference, so the arbiter treats transcription as interactive and
+  cancels any in-flight summary the moment a transcription starts — a summary can therefore never
+  slow a spoken expense or journal entry either. The cancelled summary re-queues after a
+  60-second quiet period (KD-12). `requirements: 11.17`
+- **Never publicly reachable** — sidecars bind `127.0.0.1`; the API binds `127.0.0.1:8000` plus
+  `${LAN_BIND_ADDR}:8443`, a single named LAN interface and never `0.0.0.0`; `tailscale serve`
+  (not Funnel) is the only remote path, restricted to David's tailnet. The LAN listener is
+  unauthenticated by A6's design, so the home LAN is its access boundary and it is disabled by
+  config on any network David does not control. `requirements: 13.6`
 - **One-time setup only** — after joining the tailnet and adding the home-screen icon, daily use
-  requires no login, connection step, or manual action. `requirements: 13.7`
+  on the primary origin requires no login, connection step, or manual action. Setup also installs
+  the fallback icon and grants microphone permission on both origins, so the 15.5 path needs no
+  permission prompt when it is needed. Switching to the fallback origin is an outage-recovery
+  action, not routine use — see the reading of 13.7 stated in KD-2. `requirements: 13.7`
 - **Away-from-home parity** — the same origin and the same endpoints serve mobile data and home
   Wi-Fi; no feature, including insights, is gated on being at home. `requirements: 13.4`
 - **Durability** — SQLite WAL with `synchronous=FULL` plus nightly `VACUUM INTO` snapshots; every
@@ -777,10 +1020,14 @@ and report the two results separately.
 not *unhelpful* prose. *Mitigation:* the swap to Qwen3-4B-Instruct-2507 is a config change (KD-7);
 11.3 and 11.11 make "I cannot answer that" a legitimate, passing outcome rather than a defect.
 
-**R4 — CPU contention between whisper and the LLM.** Both want all 8 cores. A transcription
-starting during summary generation slows both. *Mitigation:* 6 threads each rather than 8, the
-single LLM semaphore, and summary preemption (KD-12). *Residual:* 8.8's 30 s bound has less
-headroom under contention than the 6-10 s typical figure suggests.
+**R4 — CPU contention between whisper and the LLM.** Both want all 8 cores. *Mitigation:* the
+InferenceArbiter (KD-12) makes transcription and on-demand questions interactive and summaries
+background, and cancels a running summary the moment either arrives — so the LLM and whisper never
+run concurrently by design, which is what makes both 11.17 and 8.8 hold. Threads are capped at 6
+each so neither starves the desktop session. *Residual:* the arbiter cannot preempt work already
+inside Ollama's own request loop instantaneously; expect up to ~1 s of overlap while the
+cancellation lands. That is inside the 8.8 budget in KD-5, which already assumes the pessimistic
+2-4× realtime figure rather than a contention-free one.
 
 **R5 — Whisper hallucinates on silence.** Spanish whisper models are known to emit boilerplate
 ("Subtítulos realizados por…") when given near-silence. Left unhandled, that becomes a journal
@@ -815,6 +1062,34 @@ thing keeping the lanes in sync. *Mitigation:* the backend must serve `/openapi.
 shapes must match this document; where they diverge, **this document wins** until Reviewer decides
 otherwise. The frontend may develop against a local mock that implements this contract.
 
+**R11 — Tailscale is a third party, and 12.4 and 15.3 are written as absolutes.**
+*This is the human's decision at Approve Plan, not the Architect's. Stated neutrally.*
+
+Away-from-home access (13.4) depends on Tailscale, whose personal tier is a free tier of a
+commercial service. 12.4 forbids any functionality depending on a remote service that could begin
+charging, rate-limiting, or shutting down; that hazard is the reason Cloudflare Tunnel and ngrok
+were disqualified, and it applies to Tailscale in the same form. Separately, 15.3 forbids any
+request to an external service carrying the user's data; Tailscale traffic is end-to-end encrypted
+and its coordination server never holds plaintext, but when a direct peer connection cannot be
+established the encrypted stream is relayed through Tailscale's DERP servers. Reading 12.4 and
+15.3 literally, this is the one place the design accepts a third party.
+
+What the alternatives cost, so the trade is visible:
+
+- **Self-hosted coordination (Headscale) instead of Tailscale's.** Removes the commercial
+  dependency, and the coordination server must itself be reachable from outside the house — which
+  means a VPS (a recurring cost, failing 12.1) or the PC itself (unreachable from outside, so it
+  solves nothing).
+- **Plain WireGuard with a fixed endpoint.** No third party at all, and it needs a public IP or a
+  forwarded port on the home router, which 13.6 forbids.
+- **Home-network-only.** No third party, no port forwarding, no recurring cost. The app then works
+  at home and not on the street, which removes 13.4 — a decision the human took at the Kickoff
+  gate, and the one thing here that only he can reverse.
+
+There is no known option that provides away-from-home access with no public exposure and no
+third-party coordination. The choice is between accepting a third party for transit, and giving up
+13.4.
+
 ---
 
 ## Deferred Decisions
@@ -826,9 +1101,12 @@ Left to the Implementers, inside the structural bounds above.
 - The internal shape of the Spanish numeral grammar (a parser, a lookup table, or regexes) — only
   its behaviour on 2.4 and 9.6 is fixed here.
 - The wording of every prompt, and the exact normalisation rule inside NumericGuard.
-- The alias seed lists' contents beyond the starter sets named above.
+- The alias seed lists' contents beyond the starter sets named above, and the temporal-cue word
+  list behind the QuestionRouter's `period_unrecognised` path — only its *behaviour* is fixed.
 - Job and summary retention (nothing prunes user records; job rows are not user records).
 - Whether the nightly snapshot runs in the scheduler task or a systemd timer.
+- How the InferenceArbiter signals cancellation to each sidecar (request abort, or a provider-level
+  cancel token) — the priority rules and the 60-second quiet period are fixed; the plumbing is not.
 
 **Frontend**
 - Component decomposition, the typeface (open licence, self-hosted), spacing and type scale, and
@@ -836,7 +1114,10 @@ Left to the Implementers, inside the structural bounds above.
 - Whether the late category suggestion animates in or appears plainly.
 - Poll interval tuning around the 1 s baseline, and how "the work is happening on your own
   computer" is phrased.
-- The web-app manifest's icon and name.
+- The web-app manifest's icon and name, and the Spanish labels for the two home-screen entries.
+- The service-worker toolchain (`vite-plugin-pwa` or a hand-written worker) — its *scope* is fixed
+  in KD-13 and may not widen.
+- The phase labels shown during transcription, and how `journal_truncated` is surfaced.
 
 **Resolved before finalising, and how**
 - *Non-HTTPS private-network origins block `getUserMedia`, which would have killed voice on the
@@ -853,8 +1134,46 @@ Left to the Implementers, inside the structural bounds above.
 - *Audio format across Android and iOS.* Resolved by normalising to 16 kHz mono WAV in the browser,
   which also removes an unverified `ffmpeg` dependency (KD-15).
 
+**Resolved in revision, after artifact analysis**
+- *11.17 versus whisper/LLM core contention.* The original semaphore serialized LLM against LLM
+  only, leaving voice capture — which is expense capture — exposed to a running summary. Resolved
+  by promoting the semaphore to an InferenceArbiter covering both sidecars, with transcription as
+  interactive work that preempts summaries (KD-12). Chosen over descoping 11.17, which would have
+  cost the human a decision to buy a slower answer to a solvable problem.
+- *13.2 on a cold open while the PC is suspended.* Resolved by requiring a shell-only service
+  worker (KD-13), reversing the earlier "no service worker". Caching a static shell is not an
+  offline queue, so A15 and R7 are untouched.
+- *The journal half of the monthly summary.* Resolved: summaries always run `domain="both"`, with
+  one excerpt per day spread across the month rather than newest-first, and truncation reported in
+  `facts` rather than hidden (KD-10).
+- *A voice description longer than the field allowed.* Resolved by raising `description` to 1000
+  characters and trimming the draft on a word boundary with `description_truncated`, rather than
+  letting a confirmed voice expense fail validation on a field the user never typed (KD-8).
+- *Where the insights area lives, given "exactly three destinations".* Resolved as
+  `/finanzas/analisis` inside Finances, with a second entry point from Journal so 11.9 is
+  discoverable (Frontend structure).
+- *An unresolvable period in a question.* Resolved by adding a temporal-cue detector and the
+  `period_unrecognised` terminal state, because a correct figure for the wrong period is the exact
+  fabrication 11.11 forbids and NumericGuard cannot see it (KD-10).
+- *How the LAN fallback origin is actually reached.* Resolved as a second home-screen icon plus a
+  link from the unreachable-server state, a certificate naming a DHCP-reserved IP rather than
+  `.local`, and microphone permission granted on both origins at setup (KD-2).
+- *Whether 11.1 and 11.7 have mechanisms.* Resolved by admitting they do not: both are
+  prompt-enforced, stated as such, and are the one exception to KD-17's "frontend owns every
+  Spanish string" (KD-10).
+- *Corrected latency and memory arithmetic.* KD-5, KD-6 and KD-10 now carry end-to-end budgets and
+  a summed resident-memory table, with the context and output budgets tightened (2,000→1,200
+  tokens, 320→220 answer tokens) so the corrected figures still fit 11.12.
+
 **Open for verification, not blocking**
 - *Which phone OS David uses.* The design covers Android Chrome and iOS Safari; confirming it lets
-  the frontend drop one audio branch and lets QA test the real target. See R1.
+  the frontend drop one audio branch and lets QA test the real target. See R1. Folded into the
+  Approve Plan gate.
 - *Measured latency of `small` whisper and Qwen2.5-3B on this exact host.* Instrument from day one
-  (R9); the fallback ladder is already chosen, only the trigger point is unknown.
+  (R9); every figure in KD-5 and KD-6 is an estimate, the fallback ladder is already chosen, and
+  only the trigger point is unknown.
+
+**For the human at Approve Plan, not the Architect's to settle**
+- *Tailscale as a third-party dependency* against a literal reading of 12.4 and 15.3 — see R11.
+- *CSV exports and nightly snapshots* (KD-4, `/api/export/*.csv`) — both exceed what 14.1 and 14.2
+  require. Left in pending his keep-or-cut.
