@@ -7,7 +7,8 @@
   "stage": "implement",
   "gates_passed": [
     "kickoff",
-    "approve_plan"
+    "approve_plan",
+    "approve_mockups"
   ],
   "index": {
     "head": null,
@@ -134,7 +135,7 @@
     },
     "frontend": {
       "id": "af6f8fdf9d320da81",
-      "status": "spawned",
+      "status": "dead",
       "spawned_at": "2026-08-06T00:52:14+00:00"
     }
   },
@@ -196,7 +197,17 @@
       "stage": "implement",
       "at": "2026-08-06T00:52:14+00:00",
       "note": "frontend: spawned"
+    },
+    {
+      "stage": "implement",
+      "at": "2026-08-06T02:23:47+00:00",
+      "note": "gate passed: approve_mockups"
+    },
+    {
+      "stage": "implement",
+      "at": "2026-08-06T02:24:25+00:00",
+      "note": "frontend: dead"
     }
   ],
-  "updated_at": "2026-08-06T00:52:14+00:00"
+  "updated_at": "2026-08-06T02:24:25+00:00"
 }
