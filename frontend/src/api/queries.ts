@@ -5,6 +5,7 @@ import {
   type QueryClient,
 } from '@tanstack/react-query'
 import { api, qs } from './client'
+import { rememberOrigins } from '../state/origin'
 import type {
   CategorySuggestion,
   DaySummary,
@@ -48,7 +49,14 @@ function invalidateExpenseViews(qc: QueryClient) {
 export function useHealth() {
   return useQuery({
     queryKey: keys.health,
-    queryFn: () => api.get<Health>('/health'),
+    // KD-2 mechanism 1: the other origin is learned WHILE the server answers,
+    // and stored by whatever origin is being served. Unconditional, on every
+    // success, so a changed LAN address self-heals on the next load.
+    queryFn: async () => {
+      const health = await api.get<Health>('/health')
+      rememberOrigins(health.origins)
+      return health
+    },
     refetchInterval: 20_000,
     refetchOnWindowFocus: true,
     retry: 1,

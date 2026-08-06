@@ -55,6 +55,12 @@ export interface Health {
   server_time: string
   tz: string
   version: string
+  /**
+   * Absolute origins from server configuration, never derived from the request.
+   * Either may be `null` — `lan` is null whenever the fallback listener is
+   * disabled — and null means "no alternative exists", not an error (KD-2).
+   */
+  origins: { primary: string | null; lan: string | null }
 }
 
 export interface Status {

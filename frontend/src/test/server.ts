@@ -20,6 +20,10 @@ export function installApi(overrides: Record<string, unknown> = {}) {
       server_time: '2026-08-05T19:47:11.000-05:00',
       tz: 'America/Bogota',
       version: '1.0.0',
+      origins: {
+        primary: 'https://autonomos.tail1a2b3c.ts.net',
+        lan: 'https://192.168.1.24:8443',
+      },
     },
     'GET /api/status': { transcription: 'ok', llm: 'ok', checked_at: '2026-08-05T19:47:00-05:00' },
     'GET /api/categories': {

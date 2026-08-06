@@ -1,21 +1,42 @@
+import { Fragment, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Screen } from '../components/shell/Screen'
 import { Button } from '../components/ui/Button'
 import { common, servidor } from '../copy/es'
-import { rememberedHomeOrigin } from '../state/origin'
+import { otherOrigins, type OriginKey } from '../state/origin'
 import s from './SinServidor.module.css'
+
+const LABEL: Record<OriginKey, string> = {
+  lan: servidor.abrirCasa,
+  primary: servidor.abrirSiempre,
+}
+
+/** Each alternative explains itself, so the sentence always matches the link. */
+const AYUDA: Record<OriginKey, string> = {
+  lan: servidor.casaAyuda,
+  primary: servidor.siempreAyuda,
+}
 
 /**
  * 13.2 / constraint 18. This is the screen a COLD open produces when the PC is
  * suspended: the service worker has the shell cached (KD-13), so the phone
  * renders this instead of Chrome's own network error page.
  *
- * 13.8: the working alternative is one deliberate action away — a navigation to
- * the LAN origin, which is the only thing that can cross an origin boundary.
+ * 13.8 has two clauses and they are built separately, because tying them
+ * together is what breaks the first one:
+ *
+ *  - the plain-Spanish instruction is UNCONDITIONAL — it is copy, not data, and
+ *    renders even when no origin has ever been stored;
+ *  - the one-tap alternative is a plain navigation to the other origin, which is
+ *    the only thing that can cross an origin boundary. It is offered only from
+ *    what this origin itself stored on an earlier successful /api/health. No
+ *    stored value, no link — an address is never guessed.
  */
 export function SinServidor() {
   const qc = useQueryClient()
-  const home = rememberedHomeOrigin()
+  // Read once at mount: nothing can arrive later, because the server is not
+  // answering. There is no fetch here by design (KD-2 mechanism 1).
+  const [alternativas] = useState(otherOrigins)
 
   return (
     <Screen capture={null} active="finanzas" scroll={false}>
@@ -28,22 +49,26 @@ export function SinServidor() {
           <Button kind="primary" onClick={() => qc.invalidateQueries()}>
             {common.reintentar}
           </Button>
-          {/*
-            KD-2 forbids an origin constant in this bundle, so the fallback
-            address is not written here: it is REMEMBERED from the visit setup
-            makes to the LAN origin when it installs the second home-screen icon.
-            Before that has happened there is no address to offer, and inventing
-            one would be worse than saying where the icon is.
-          */}
-          {home && (
-            <a className={s.homeLink} href={home}>
-              {servidor.abrirCasa}
+          {alternativas.map((alt) => (
+            <a key={alt.key} className={s.homeLink} href={alt.origin}>
+              {LABEL[alt.key]}
             </a>
-          )}
+          ))}
         </div>
+        {/*
+          13.8's first clause is copy, not data, so this paragraph is never
+          empty: with nothing stored it still says where the home version is and
+          what has to be true for it to work. With an origin armed, the same
+          sentence carries its address.
+        */}
         <p className={s.addr}>
-          {servidor.casaAyuda}
-          {home && <b>{home}</b>}
+          {alternativas.length === 0 && servidor.casaAyuda}
+          {alternativas.map((alt) => (
+            <Fragment key={alt.key}>
+              {AYUDA[alt.key]}
+              <b>{alt.origin}</b>
+            </Fragment>
+          ))}
         </p>
       </div>
     </Screen>

@@ -13,6 +13,14 @@ await load.catch(() => console.log('(no load event)'))
 await sleep(4500)
 console.log('--- cold open, server stopped ---')
 console.log(await evaluate(p.send, `document.body.innerText.slice(0,220)`))
+console.log('origins read:', await evaluate(p.send, `localStorage.getItem('autonomos.origins')`))
+console.log(
+  'alternative offered:',
+  await evaluate(p.send, `(() => {
+    const a = [...document.querySelectorAll('a')].find((e) => /^Abrir la versión/.test(e.textContent))
+    return a ? a.textContent + ' -> ' + a.getAttribute('href') : 'none'
+  })()`),
+)
 const { data } = await p.send('Page.captureScreenshot', { format: 'png' })
 await writeFile(resolve(HERE, 'shots/sin-servidor-arranque-en-frio.png'), Buffer.from(data, 'base64'))
 browser.close(); proc.kill(); process.exit(0)

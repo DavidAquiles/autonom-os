@@ -246,8 +246,12 @@ export const servidor = {
     'Tu teléfono no encuentra el computador donde vive Autonom-OS. Casi siempre es que el computador está suspendido o apagado.',
   cuerpo2: 'Lo que ya guardaste está a salvo allá. No se pierde nada por esperar.',
   abrirCasa: 'Abrir la versión de casa',
+  // Offered from the LAN origin: the everyday one, which works on any network.
+  abrirSiempre: 'Abrir la versión de siempre',
   casaAyuda:
     'La versión de casa funciona cuando el teléfono y el computador están en el mismo wifi, aunque no haya internet.',
+  siempreAyuda:
+    'La versión de siempre funciona desde cualquier red, mientras el computador esté encendido.',
   bannerTitulo: 'No alcanzo tu servidor.',
   bannerCuerpo:
     'Lo que ves puede estar desactualizado y no se puede guardar nada nuevo hasta que vuelva. Se reconecta solo.',

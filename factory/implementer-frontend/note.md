@@ -21,11 +21,13 @@ Three things downstream needs to know before reading further:
    caught by rendering and looking, not by reading.
 3. **The offline screen no longer hardcodes `https://192.168.1.24:8443`.** KD-2
    forbids an origin or port in the bundle, and the built assets contain neither.
-   The LAN address is remembered from the visit setup makes to that origin.
+   The alternative origin is **learned from `GET /api/health` while the server is
+   still answering**, and stored by whatever origin is being served — see
+   *Reviewer F2* below, which corrects what this note previously claimed.
 
-82 screenshots at 390/360/320/900 px, including forced `:hover`,
+89 screenshots at 390/360/320/900 px, including forced `:hover`,
 `:focus-visible`, `:active` and `disabled`, are in `frontend/tools/shots/`, with
-`audit.json` beside them. 29 frontend tests pass. The build carries no origin, no
+`audit.json` beside them. 35 frontend tests pass. The build carries no origin, no
 port and no external request.
 
 ## How to run it
@@ -57,7 +59,7 @@ deliberate:
 | Departure | Why |
 |---|---|
 | **The live-preview block is removed from the question wait** (`analisis-esperando`) | Instructed. `partial_answer` is not on the wire (KD-11); a figure shown then retracted was still shown. Everything else on that screen is unchanged. |
-| **The offline screen shows no hardcoded LAN address** | KD-2: no origin or port in the bundle. `src/state/origin.ts` remembers the origin when the app is served from something other than the tailnet — which happens when setup installs the second home-screen icon. Before that there is no address to offer, and the screen says where the home version is instead of inventing one. `sin-servidor.png` shows the state with nothing remembered; the "Abrir la versión de casa" link appears once it is. **This is the one place the built UI cannot look like the approved mockup.** |
+| **The offline screen shows no hardcoded LAN address** | KD-2: no origin or port in the bundle. The address is data from `GET /api/health`, stored by the origin being served and read when the server is unreachable — `sin-servidor.png` now matches the approved mockup, link and address included. Only the never-yet-connected origin renders without a link, which is KD-2's named residual. Corrected in this pass; see *Reviewer F2*. |
 | **A "Preguntar" button appears under the ask row once it has text** | The approved ask row is an input plus a mic with no visible submit. On a phone that is only reachable via the keyboard's "Ir" key — and a *spoken* question arrives with no keyboard up, so it would be unsendable. The row itself is unchanged; the button only exists when the field is non-empty. See `analisis-preguntar.png`. |
 | **The phone frame and simulated status bar are gone** | Mockup scaffolding, named as such in the Phase 1 note. |
 | **`/finanzas/ajustes` splits into a list and a per-item editor** (`/finanzas/ajustes/:kind/:id`) | The mockups showed both screens; the route was implied but unnamed. |
@@ -116,7 +118,7 @@ nothing absent from the contract is typed, so no component can render it.
 
 | Contract entry | Where consumed |
 |---|---|
-| `GET /api/health` | `queries.ts:useHealth` — reachability (13.2/13.3) **and** the authoritative clock: today and this month come from `server_time`, never from the device (4.8) |
+| `GET /api/health` | `queries.ts:useHealth` — reachability (13.2/13.3); the authoritative clock, so today and this month come from `server_time` and never from the device (4.8); and `origins`, persisted on **every** success by the origin being served (13.8, KD-2 mechanism 1). `null` on either key is a normal state, never an error |
 | `GET /api/status` | `Ajustes.tsx` readout, `Analisis.tsx` LLM-unavailable state (11.4) |
 | `GET /api/categories`, `/api/payment-methods` | chip rows, Ajustes list; `in_use_count` drives the "en N gastos" line |
 | `POST /api/categories`, `/api/payment-methods` | `GastoForm.tsx:InlineCreate` (3.2), `Ajustes.tsx:CreateInline`; `409 conflict` → "Ya tienes uno con ese nombre." |
@@ -177,25 +179,32 @@ Beyond the matrix, run against the **real** backend on 8001:
   killed, then `tools/sw-cold.mjs`): a brand-new browser process cold-opening the
   app with nothing listening rendered "No puedo alcanzar tu servidor.", not
   Chrome's network error page. 11 shell entries cached, `/api/*` never. This is
-  13.2's primary case and it is the reason the service worker exists.
+  13.2's primary case and it is the reason the service worker exists. **The same
+  pair now proves KD-2 mechanism 1 end to end**, which no unit test can: the warm
+  visit printed `origins armed: {"primary":"https://autonomos.tail1a2b3c.ts.net","lan":null}`
+  from a real `/api/health`, and the cold open — different process, server
+  stopped — printed `alternative offered: Abrir la versión de siempre ->
+  https://autonomos.tail1a2b3c.ts.net`.
 - **Voice captured live with a fake device**: `voz-escuchando` and
   `voz-transcribiendo` are real recordings through `getUserMedia` →
   `MediaRecorder` → `decodeAudioData` → 16 kHz mono WAV, not staged screens.
 - **No origin, no port, no external request in the bundle**: grepping `dist/`
   yields one URL, React's own error link. No `8000`, `8001`, `8443` or `5173`.
 
-29 tests pass (`npm test`), including the four-interaction budget driven through
+35 tests pass (`npm test`), including the four-interaction budget driven through
 the real component tree, multi-field validation, Gym inertness, the cold-open
-offline screen, the closed error-code map, and the stylesheet policy checks.
+offline screen, the closed error-code map, the stylesheet policy checks, and the
+six new tests that pin the alternative-origin mechanism in both directions
+(`src/test/origenes.test.tsx`).
 
 ### Screenshot matrix — every row
 
 | Row | Captured | Where |
 |---|---|---|
 | default | yes, all screens | `tools/shots/` |
-| **hover** | yes | `*--hover`, `*--chip-hover`, `*--fila-hover`, `*--nav-hover`, `*--exportar-hover`, `*--listo-hover`, `*--boton-hover`, `*--entrada-hover` |
-| **focus-visible** | yes | `*--fila-foco`, `*--chip-foco`, `*--captura-foco`, `*--monto-foco`, `*--pregunta-foco`, `*--cancelar-foco` |
-| **active / pressed** | yes | `*--fila-pulsada`, `*--chip-pulsado`, `*--boton-pulsado`, `*--mic-pulsado`, `gasto-eliminar--boton-pulsado` |
+| **hover** | yes | `*--hover`, `*--chip-hover`, `*--fila-hover`, `*--nav-hover`, `*--exportar-hover`, `*--listo-hover`, `*--boton-hover`, `*--entrada-hover`, `sin-servidor--enlace-hover` |
+| **focus-visible** | yes | `*--fila-foco`, `*--chip-foco`, `*--captura-foco`, `*--monto-foco`, `*--pregunta-foco`, `*--cancelar-foco`, `sin-servidor--enlace-foco` |
+| **active / pressed** | yes | `*--fila-pulsada`, `*--chip-pulsado`, `*--boton-pulsado`, `*--mic-pulsado`, `gasto-eliminar--boton-pulsado`, `sin-servidor--enlace-pulsado` |
 | **disabled** | yes | `finanzas-mes--flecha-deshabilitada` (next month), `gasto-guardando` (submit), `analisis-ia-no-disponible` (ask field and mic), `analisis-esperando--*` (ask field and mic while a job runs) |
 | empty | yes, 6 | `finanzas-hoy-vacio`, `finanzas-mes-vacio`, `diario-vacio`, `diario-fecha-vacia`, `analisis-sin-resumen`, `analisis-periodo-vacio` |
 | loading | yes | `voz-transcribiendo`, `analisis-esperando--12s` / `--68s`, `analisis-generando`, `gasto-guardando` |
@@ -204,6 +213,14 @@ offline screen, the closed error-code map, and the stylesheet policy checks.
 | wide viewport | yes | 900 px |
 | scrolled | yes | `*--desplazado` |
 | dark mode | **not applicable** | Constraint 22 is light-only. There is no dark variant that could exist: zero `prefers-color-scheme` rules, asserted by a test and by a browser-side tripwire in every capture. |
+
+The offline screen is now captured in **every** state it can take, because the
+link's existence is the thing F2 was about: `sin-servidor` (armed, one
+alternative — matches the approved mockup), `sin-servidor--sin-origen` (nothing
+ever stored), `sin-servidor--desde-casa` (served from the LAN origin, so the
+everyday one is offered), `sin-servidor--ambos` (a third origin, both offered),
+`sin-servidor--320`, the three forced link states, and
+`sin-servidor-arranque-en-frio` from the real cold open.
 
 **Two states could not be captured and are named rather than written off:**
 
@@ -220,19 +237,60 @@ offline screen, the closed error-code map, and the stylesheet policy checks.
 Neither is "not screenshotable" — both are unreachable *in this environment*, and
 both have a named, testable path on a real Android device.
 
+## Reviewer F2 — the alternative origin, corrected
+
+**What was wrong.** `state/origin.ts` wrote `autonomos.homeOrigin` only when the
+serving host was *not* `*.ts.net`. `localStorage` is per-origin, so that write
+landed in the LAN origin's storage and was unreadable from the tailnet origin —
+the one that renders the failure. On the primary origin nothing was ever written;
+on the fallback origin the link was suppressed by design. There was no state of
+the app in which the link appeared, and the claim in this note that it did was
+false. It is corrected in Summary point 3, in Fidelity, and in Deviations 1.
+
+**What the code does now** — KD-2 mechanism 1, in the direction it has to run.
+
+| Change | Serves |
+|---|---|
+| `src/api/types.ts:53-64` — `Health.origins: { primary, lan }`, either nullable | Interface Contract `GET /api/health` |
+| `src/api/queries.ts:49-63` — `useHealth` persists `origins` on **every** success, gated on nothing | KD-2 mech. 1 obligation 1 (AC 13.8) |
+| `src/state/origin.ts` — rewritten: `rememberOrigins()` writes into the serving origin's storage, overwriting each time so a changed LAN address self-heals; `otherOrigins()` returns every stored entry that parses as an absolute origin and differs from `window.location.origin` | obligations 1 and 2 (AC 13.8) |
+| `src/main.tsx:24` — the boot-time `rememberOriginIfHome()` call is gone | it was the inverted gate itself |
+| `src/routes/SinServidor.tsx` — renders one link per alternative, and the explanatory paragraph **unconditionally** | AC 13.8 clause 1 (copy) + clause 2 (link), AC 13.2 |
+| `src/copy/es.ts:249-256` — `abrirSiempre` / `siempreAyuda` | the LAN origin has to offer the everyday one, which the approved copy had no words for |
+| `src/routes/SinServidor.module.css:67-77` — address block spacing when two alternatives exist | the dev-only both-origins state |
+| `src/test/origenes.test.tsx` — 6 tests | the bug was untested; these fail if the gate ever comes back |
+
+Three things deliberately **not** done: no fetch when the screen renders (nothing
+is answering, which is the trap in the obvious fix); no address is ever guessed
+or composed, so no stored value means no link; and the plain-Spanish instruction
+does not depend on the link existing — `sin-servidor--sin-origen.png` is that
+state, with the title, the explanation, retry and the instruction all present.
+
+The residual is unchanged and is not mine to close: an origin that has never once
+reached the server has nothing stored, so 13.8's second clause cannot hold there.
+Setup loading both origins once is what closes it.
+
+**A verification defect found on the way, and fixed.** The first render of the
+three forced link states came out byte-identical to the default. The offline
+screen re-mounts when the health query settles into its error state, and
+`CSS.forcePseudoState` binds to a node id — so the forced state was dropped by
+React's re-render and the capture silently showed nothing at all while being
+filed as hover, focus and active. `tools/shots.mjs` now re-checks that the
+stamped element still exists at capture time and reports `ESTADO-PERDIDO` as a
+finding, and those shots wait for the state to settle first. Separately,
+`tools/sw-warm.mjs` closes Chromium through `Browser.close` instead of a signal,
+because `localStorage` is flushed on a clean shutdown and a SIGTERM dropped the
+armed origin the cold open needed. 89 captures, 0 findings.
+
 ## Escalations / Deviations
 
 No escalation was needed. Four decisions worth Reviewer's eye:
 
-**1. The LAN fallback address is learned, not written down.** KD-2's "the frontend
-hardcodes no origin… no environment-specific origin" and its instruction that the
-offline state "offers a plain link to the fallback origin" cannot both be
-satisfied literally. `src/state/origin.ts` stores `location.origin` whenever the
-app is served over HTTPS from something other than a `.ts.net` host, and the
-offline screen offers that if it exists. Setup's second home-screen icon is what
-populates it. Alternative rejected: a build-time env var, which puts a port in the
-bundle. **If Reviewer prefers the literal link, the address has to come from
-somewhere the contract does not currently provide.**
+**1. The LAN fallback address is learned, not written down.** ~~`src/state/origin.ts`
+stores `location.origin` whenever the app is served over HTTPS from something
+other than a `.ts.net` host~~ — **this was wrong and never worked**; the
+contract now provides the address and the mechanism runs the other way. See
+*Reviewer F2* for what the code does today.
 
 **2. Red on the failed-save banner** — see constraint 3 above. Kept faithful to
 the approved mockup and disclosed rather than silently changed.
@@ -315,7 +373,11 @@ as distinct surfaces · 11.18 period label and `generated_at`.
 with the server killed · 13.3 health keeps polling and the banner clears itself;
 jobs re-attach · 13.4 relative paths only, so both origins behave identically ·
 13.5 a failed save keeps the form exactly as typed and offers retry · 13.6, 13.7
-backend/ops · 13.8 the banner links to the offline screen in one action.
+backend/ops · 13.8 **both clauses**: the plain-Spanish instruction renders
+unconditionally, and the other origin — learned from `/api/health` — is one tap
+away as a plain link. The banner reaches the offline screen in one action. The
+residual is KD-2's: an origin that has never once reached the server has nothing
+stored, so it renders without a link; setup closes that window.
 
 **R14** — 14.1, 14.3 backend · 14.2 export from Ajustes.
 

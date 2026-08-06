@@ -66,9 +66,14 @@
 }
 .addr b {
   display: block;
-  margin-top: 6px;
+  /* The bottom margin only separates a second alternative from its sentence;
+     the last address keeps the approved spacing exactly. */
+  margin: 6px 0 12px;
   color: var(--ink);
   font-weight: 700;
   overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
+}
+.addr b:last-child {
+  margin-bottom: 0;
 }

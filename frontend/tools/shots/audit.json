@@ -2,6 +2,7 @@
   {
     "name": "finanzas-hoy",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -12,6 +13,7 @@
   {
     "name": "finanzas-hoy--fila-hover",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -22,6 +24,7 @@
   {
     "name": "finanzas-hoy--fila-foco",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -32,6 +35,7 @@
   {
     "name": "finanzas-hoy--fila-pulsada",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -42,6 +46,7 @@
   {
     "name": "finanzas-hoy--captura-hover",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -52,6 +57,7 @@
   {
     "name": "finanzas-hoy--captura-foco",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -62,6 +68,7 @@
   {
     "name": "finanzas-hoy--nav-hover",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -72,6 +79,7 @@
   {
     "name": "finanzas-hoy-vacio",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -82,6 +90,7 @@
   {
     "name": "finanzas-mes",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -92,6 +101,7 @@
   {
     "name": "finanzas-mes--desplazado",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -102,6 +112,7 @@
   {
     "name": "finanzas-mes--flecha-deshabilitada",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -112,6 +123,7 @@
   {
     "name": "finanzas-mes-vacio",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -122,6 +134,7 @@
   {
     "name": "gasto-nuevo",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -132,6 +145,7 @@
   {
     "name": "gasto-nuevo--chip-hover",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -142,6 +156,7 @@
   {
     "name": "gasto-nuevo--chip-foco",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -152,6 +167,7 @@
   {
     "name": "gasto-nuevo--chip-pulsado",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -162,6 +178,7 @@
   {
     "name": "gasto-nuevo--elegido",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -172,6 +189,7 @@
   {
     "name": "gasto-nuevo--boton-hover",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -182,6 +200,7 @@
   {
     "name": "gasto-nuevo--boton-pulsado",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -192,6 +211,7 @@
   {
     "name": "gasto-nuevo-error",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -202,6 +222,7 @@
   {
     "name": "gasto-nuevo-nueva-categoria",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -212,6 +233,7 @@
   {
     "name": "gasto-nuevo-fecha",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -222,6 +244,7 @@
   {
     "name": "gasto-guardando",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -232,6 +255,7 @@
   {
     "name": "gasto-guardar-fallo",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -242,6 +266,7 @@
   {
     "name": "gasto-editar",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -252,6 +277,7 @@
   {
     "name": "gasto-eliminar",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -262,6 +288,7 @@
   {
     "name": "gasto-eliminar--boton-pulsado",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -272,6 +299,7 @@
   {
     "name": "gasto-eliminar--boton-hover",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -282,6 +310,7 @@
   {
     "name": "gasto-nuevo--monto-foco",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -292,6 +321,7 @@
   {
     "name": "gasto-nuevo--descripcion-hover",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -302,6 +332,7 @@
   {
     "name": "diario",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -312,6 +343,7 @@
   {
     "name": "diario--desplazado",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -322,6 +354,7 @@
   {
     "name": "diario--entrada-hover",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -332,6 +365,7 @@
   {
     "name": "diario-vacio",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -342,6 +376,7 @@
   {
     "name": "diario-fecha",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -352,6 +387,7 @@
   {
     "name": "diario-fecha-vacia",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -362,6 +398,7 @@
   {
     "name": "diario-entrada",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -372,6 +409,7 @@
   {
     "name": "diario-escribir",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -382,6 +420,7 @@
   {
     "name": "diario-escribir-error",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -392,6 +431,7 @@
   {
     "name": "analisis",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -402,6 +442,7 @@
   {
     "name": "analisis-sin-resumen",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -412,6 +453,7 @@
   {
     "name": "analisis-generando",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -422,6 +464,7 @@
   {
     "name": "analisis-periodo-vacio",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -432,6 +475,7 @@
   {
     "name": "analisis-resumen-fallo",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -442,6 +486,7 @@
   {
     "name": "analisis-esperando--12s",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -452,6 +497,7 @@
   {
     "name": "analisis-esperando--68s",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -462,6 +508,7 @@
   {
     "name": "analisis-esperando--cancelar-hover",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -472,6 +519,7 @@
   {
     "name": "analisis-respuesta",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -482,6 +530,7 @@
   {
     "name": "analisis-respuesta-periodo-asumido",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -492,6 +541,7 @@
   {
     "name": "analisis-error-preempted",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -502,6 +552,7 @@
   {
     "name": "analisis-error-unverifiable",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -512,6 +563,7 @@
   {
     "name": "analisis-error-insuficiente",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -522,6 +574,7 @@
   {
     "name": "analisis-error-periodo",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -532,6 +585,7 @@
   {
     "name": "analisis-error-timeout",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -542,6 +596,7 @@
   {
     "name": "analisis-ia-no-disponible",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -552,6 +607,7 @@
   {
     "name": "analisis-ocupado",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -562,6 +618,7 @@
   {
     "name": "analisis-preguntar",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -572,6 +629,7 @@
   {
     "name": "analisis--pregunta-foco",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -582,6 +640,7 @@
   {
     "name": "analisis--mic-pulsado",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -592,6 +651,7 @@
   {
     "name": "finanzas-ajustes--exportar-hover",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -602,6 +662,7 @@
   {
     "name": "finanzas-ajustes",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -612,6 +673,7 @@
   {
     "name": "finanzas-ajustes--desplazado",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -622,6 +684,7 @@
   {
     "name": "finanzas-ajustes-editar",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -632,6 +695,7 @@
   {
     "name": "finanzas-ajustes-quitar",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -642,6 +706,7 @@
   {
     "name": "gimnasio",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -652,6 +717,73 @@
   {
     "name": "sin-servidor",
     "width": 390,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "sin-servidor--sin-origen",
+    "width": 390,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "sin-servidor--desde-casa",
+    "width": 390,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "sin-servidor--ambos",
+    "width": 390,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "sin-servidor--enlace-hover",
+    "width": 390,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "sin-servidor--enlace-foco",
+    "width": 390,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "sin-servidor--enlace-pulsado",
+    "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -662,6 +794,7 @@
   {
     "name": "sin-servidor-frio",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -672,6 +805,7 @@
   {
     "name": "sin-servidor-banner",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -682,6 +816,7 @@
   {
     "name": "finanzas-hoy--360",
     "width": 360,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -692,6 +827,7 @@
   {
     "name": "finanzas-hoy--320",
     "width": 320,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -702,6 +838,7 @@
   {
     "name": "gasto-nuevo--320",
     "width": 320,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -712,6 +849,7 @@
   {
     "name": "gasto-nuevo--360",
     "width": 360,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -722,6 +860,18 @@
   {
     "name": "diario--320",
     "width": 320,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 320,
+    "innerWidth": 320
+  },
+  {
+    "name": "sin-servidor--320",
+    "width": 320,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -732,6 +882,7 @@
   {
     "name": "finanzas-hoy--900",
     "width": 900,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -742,6 +893,7 @@
   {
     "name": "diario--900",
     "width": 900,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -752,6 +904,7 @@
   {
     "name": "voz-escuchando",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -762,6 +915,7 @@
   {
     "name": "voz-escuchando--listo-hover",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -772,6 +926,7 @@
   {
     "name": "voz-escuchando--cancelar-foco",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -782,6 +937,7 @@
   {
     "name": "voz-transcribiendo",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -792,6 +948,7 @@
   {
     "name": "voz-fallo",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -802,6 +959,7 @@
   {
     "name": "gasto-voz-revision",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,
@@ -812,6 +970,7 @@
   {
     "name": "diario-voz-revision",
     "width": 390,
+    "forceLost": false,
     "contrast": [],
     "targets": [],
     "overflow": false,

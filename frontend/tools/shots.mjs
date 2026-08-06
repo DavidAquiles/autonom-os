@@ -496,7 +496,77 @@ const SHOTS = [
 
   /* --- Sistema --- */
   { name: 'gimnasio', url: '/gimnasio' },
-  { name: 'sin-servidor', url: '/sin-servidor' },
+  /*
+   * KD-2 mechanism 1 / criterion 13.8. The alternative origin is only ever what
+   * THIS origin stored on an earlier successful /api/health, so these shots seed
+   * `localStorage` — the exact thing the health response writes — and then kill
+   * the API, which is the real condition of the screen. Both halves are
+   * captured: with an armed origin and with nothing stored at all.
+   */
+  {
+    name: 'sin-servidor',
+    url: '/sin-servidor',
+    killApi: true,
+    local: { 'autonomos.origins': { primary: BASE, lan: 'https://192.168.1.24:8443' } },
+  },
+  {
+    name: 'sin-servidor--sin-origen',
+    url: '/sin-servidor',
+    killApi: true,
+  },
+  {
+    // Served from the LAN origin and away from home: the alternative offered is
+    // the everyday one, not the local one.
+    name: 'sin-servidor--desde-casa',
+    url: '/sin-servidor',
+    killApi: true,
+    local: {
+      'autonomos.origins': { primary: 'https://autonomos.tail1a2b3c.ts.net', lan: BASE },
+    },
+  },
+  {
+    // A third origin (localhost during setup) is the only state where both
+    // alternatives exist at once; captured rather than assumed.
+    name: 'sin-servidor--ambos',
+    url: '/sin-servidor',
+    killApi: true,
+    local: {
+      'autonomos.origins': {
+        primary: 'https://autonomos.tail1a2b3c.ts.net',
+        lan: 'https://192.168.1.24:8443',
+      },
+    },
+  },
+  {
+    name: 'sin-servidor--enlace-hover',
+    url: '/sin-servidor',
+    killApi: true,
+    local: { 'autonomos.origins': { primary: BASE, lan: 'https://192.168.1.24:8443' } },
+    // The unreachable state re-mounts when the health query settles; forcing
+    // before that would bind the pseudo-class to a node React then replaces.
+    before: [{ wait: 2500 }],
+    forceText: [['Abrir la versión de casa', ['hover']]],
+  },
+  {
+    name: 'sin-servidor--enlace-foco',
+    url: '/sin-servidor',
+    killApi: true,
+    local: { 'autonomos.origins': { primary: BASE, lan: 'https://192.168.1.24:8443' } },
+    // The unreachable state re-mounts when the health query settles; forcing
+    // before that would bind the pseudo-class to a node React then replaces.
+    before: [{ wait: 2500 }],
+    forceText: [['Abrir la versión de casa', ['focus', 'focus-visible']]],
+  },
+  {
+    name: 'sin-servidor--enlace-pulsado',
+    url: '/sin-servidor',
+    killApi: true,
+    local: { 'autonomos.origins': { primary: BASE, lan: 'https://192.168.1.24:8443' } },
+    // The unreachable state re-mounts when the health query settles; forcing
+    // before that would bind the pseudo-class to a node React then replaces.
+    before: [{ wait: 2500 }],
+    forceText: [['Abrir la versión de casa', ['hover', 'active']]],
+  },
   { name: 'sin-servidor-frio', url: '/finanzas', killApi: true, before: [{ wait: 2500 }] },
   {
     name: 'sin-servidor-banner',
@@ -511,6 +581,14 @@ const SHOTS = [
   { name: 'gasto-nuevo--320', url: '/finanzas/gasto/nuevo', width: 320 },
   { name: 'gasto-nuevo--360', url: '/finanzas/gasto/nuevo', width: 360 },
   { name: 'diario--320', url: '/diario', width: 320 },
+  {
+    // The armed address is the longest unbreakable string on any screen.
+    name: 'sin-servidor--320',
+    url: '/sin-servidor',
+    width: 320,
+    killApi: true,
+    local: { 'autonomos.origins': { primary: BASE, lan: 'https://192.168.1.24:8443' } },
+  },
   { name: 'finanzas-hoy--900', url: '/finanzas', width: 900, height: 900 },
   { name: 'diario--900', url: '/diario', width: 900, height: 900 },
 ]
@@ -743,13 +821,19 @@ async function shoot(browser, shot) {
 
   const detach = await applyStubs(browser, sessionId, send, shot)
 
-  if (shot.session) {
-    await send('Page.addScriptToEvaluateOnNewDocument', {
-      source: Object.entries(shot.session)
-        .map(([k, v]) => `sessionStorage.setItem(${JSON.stringify(k)}, ${JSON.stringify(v)});`)
-        .join('\n'),
-    })
-  }
+  // localStorage survives between shots in this shared profile, so the armed
+  // origins are cleared first and seeded only where a shot asks for them. A
+  // shot that inherited another's storage would prove nothing about KD-2.
+  const preamble = [
+    `try { localStorage.removeItem('autonomos.origins') } catch (e) {}`,
+    ...Object.entries(shot.local ?? {}).map(
+      ([k, v]) => `localStorage.setItem(${JSON.stringify(k)}, ${JSON.stringify(JSON.stringify(v))});`,
+    ),
+    ...Object.entries(shot.session ?? {}).map(
+      ([k, v]) => `sessionStorage.setItem(${JSON.stringify(k)}, ${JSON.stringify(v)});`,
+    ),
+  ].join('\n')
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: preamble })
 
   const load = waitForLoad(browser, sessionId)
   await send('Page.navigate', { url: BASE + shot.url })
@@ -795,13 +879,27 @@ async function shoot(browser, shot) {
   }
   if (shot.force || shot.forceText) await sleep(150)
 
+  // A forced pseudo-state is bound to a node id, so a re-render that replaces
+  // the node drops it — and the capture then looks exactly like the default
+  // state while claiming to be hover, focus or active. That silent no-op is the
+  // failure mode this whole matrix exists to prevent, so it is detected: if the
+  // stamped element is gone by capture time the shot is a finding, not a pass.
+  let forceLost = false
+  if (shot.forceText?.length) {
+    const alive = await evaluate(send, `!!document.querySelector('[data-force-target]')`)
+    if (!alive) {
+      forceLost = true
+      console.warn(`  ! ${shot.name}: forced state was lost before capture (element re-rendered)`)
+    }
+  }
+
   const audit = await evaluate(send, AUDIT_JS)
   const { data } = await send('Page.captureScreenshot', { format: 'png' })
   await writeFile(resolve(OUT, `${shot.name}.png`), Buffer.from(data, 'base64'))
 
   detach()
   await browser.send('Target.closeTarget', { targetId })
-  return { name: shot.name, width, ...audit }
+  return { name: shot.name, width, forceLost, ...audit }
 }
 
 async function main() {
@@ -820,6 +918,7 @@ async function main() {
         r.contrast.length ? `contraste:${r.contrast.length}` : '',
         r.targets.length ? `toque:${r.targets.length}` : '',
         r.darkRules ? `dark:${r.darkRules}` : '',
+        r.forceLost ? 'ESTADO-PERDIDO' : '',
       ]
         .filter(Boolean)
         .join(' ')
@@ -841,6 +940,7 @@ async function main() {
         r.overflow ? 'OVERFLOW' : '',
         r.contrast.length ? `contraste:${r.contrast.length}` : '',
         r.targets.length ? `toque:${r.targets.length}` : '',
+        r.forceLost ? 'ESTADO-PERDIDO' : '',
       ]
         .filter(Boolean)
         .join(' ')
@@ -856,7 +956,8 @@ async function main() {
   await writeFile(resolve(OUT, 'audit.json'), JSON.stringify(results, null, 2))
 
   const bad = results.filter(
-    (r) => r.error || r.overflow || r.contrast?.length || r.targets?.length || r.darkRules,
+    (r) =>
+      r.error || r.overflow || r.contrast?.length || r.targets?.length || r.darkRules || r.forceLost,
   )
   console.log(`\n${results.length} capturas · ${bad.length} con hallazgos`)
   for (const r of bad) {
@@ -865,6 +966,7 @@ async function main() {
     for (const t of r.targets ?? []) console.log(`   toque ${t.w}x${t.h}  ${t.tag}.${t.cls}  "${t.text}"`)
     if (r.overflow) console.log(`   desbordamiento horizontal ${r.scrollWidth} > ${r.innerWidth}`)
     if (r.darkRules) console.log(`   ${r.darkRules} reglas prefers-color-scheme (constraint 22)`)
+    if (r.forceLost) console.log(`   el estado forzado se perdió antes de la captura`)
   }
   process.exit(bad.length ? 1 : 0)
 }

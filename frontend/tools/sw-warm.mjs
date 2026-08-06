@@ -13,4 +13,12 @@ await sleep(3500)
 console.log('sw controlling:', await evaluate(p.send, `!!navigator.serviceWorker.controller`))
 console.log('cached entries:', await evaluate(p.send, `caches.keys().then(k=>caches.open(k[0])).then(c=>c.keys()).then(r=>r.length)`, true))
 console.log('cache name:', await evaluate(p.send, `caches.keys().then(k=>k.join(','))`, true))
+// KD-2 mechanism 1: this visit is also what ARMS the alternative origin, so the
+// cold open below has something to offer. If this prints null the link cannot
+// appear later, and the reason is here rather than in the offline screen.
+console.log('origins armed:', await evaluate(p.send, `localStorage.getItem('autonomos.origins')`))
+// Close through the browser, not with a signal: localStorage is flushed on a
+// clean shutdown, and a SIGTERM can drop the write this whole check depends on.
+await browser.send('Browser.close').catch(() => {})
+await sleep(600)
 browser.close(); proc.kill(); process.exit(0)

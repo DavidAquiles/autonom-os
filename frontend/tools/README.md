@@ -27,6 +27,21 @@ node tools/shots.mjs                # render the matrix + audit → tools/shots/
 
 It exits non-zero if anything is flagged, and writes `tools/shots/audit.json`.
 
+**A forced state that quietly stopped being forced is itself a finding.**
+`CSS.forcePseudoState` binds to a node id, so a re-render that replaces the node
+drops it and the capture then looks exactly like the default state while being
+filed as hover, focus or active — a render that proves nothing while appearing
+to prove something. Every `forceText` shot therefore re-checks that its stamped
+element is still on the page at capture time and reports `ESTADO-PERDIDO` if it
+is not. This fired for real on the "cannot reach your server" shots: the screen
+re-mounts when the health query settles into its error state, so those shots wait
+for it first.
+
+A shot may seed `localStorage` with `local: { key: value }` (values are
+JSON-stringified for you). `autonomos.origins` — the armed alternative origin —
+is cleared before every shot, because the profile is shared and a shot that
+inherited another's storage would prove nothing about KD-2.
+
 States the server cannot be put into on demand — an empty month, a question
 mid-flight, a failed summary, a truncated answer, `409 busy`, the LLM down — are
 produced by fulfilling that one request with a **contract-shaped** payload
@@ -44,6 +59,15 @@ node tools/sw-cold.mjs              # cold open → tools/shots/sin-servidor-arr
 
 The second run must print the Spanish "No puedo alcanzar tu servidor." screen. If
 it prints a Chrome network error instead, 13.2's primary case is broken.
+
+The same pair also exercises KD-2 mechanism 1 end to end, which is the only way
+to see it: the warm visit is what *arms* the alternative origin from a real
+`/api/health`, and the cold open — a new browser process, server stopped — is
+what *reads* it. `sw-warm` prints `origins armed:` and `sw-cold` prints
+`alternative offered:`, so a break is attributable to the write or to the read
+rather than to "the link did not show". `sw-warm` closes the browser through
+`Browser.close` rather than a signal on purpose: `localStorage` is flushed on a
+clean shutdown, and a SIGTERM can drop the very write the cold open depends on.
 
 ## Icons
 
