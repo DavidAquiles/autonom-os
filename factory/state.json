@@ -108,7 +108,72 @@
     "visual_capable": true,
     "missing_required": []
   },
-  "verification": {},
+  "verification": {
+    "frontend:install": {
+      "result": "pass",
+      "exit_code": 0,
+      "command": "npm ci",
+      "detail": "added 193 packages, and audited 194 packages in 3s\n\n34 packages are looking for funding\n  run `npm fund` for details\n\n7 vulnerabilities (5 moderate, 1 high, 1 critical)\n\nTo address issues that do not require attention, run:\n  npm audit fix\n\nTo address all issues (including breaking changes), run:\n  npm audit fix --force\n\nRun `npm audit` for details.\nnpm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation\nnpm warn allow-scripts 3 packages have install scripts not yet covered by allowScripts:\nnpm warn allow-scripts   esbuild@0.25.12 (postinstall: node install.js)\nnpm warn allow-scripts   esbuild@0.21.5 (postinstall: node install.js)\nnpm warn allow-scripts   esbuild@0.21.5 (postinstall: node install.js)\nnpm warn allow-scripts\nnpm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.",
+      "required": false,
+      "at": "2026-08-06T03:21:51+00:00",
+      "rev": "23f1104"
+    },
+    "frontend:build": {
+      "result": "pass",
+      "exit_code": 0,
+      "command": "npm run build",
+      "detail": "> autonomos-frontend@1.0.0 build\n> tsc --noEmit && vite build\n\nvite v6.4.3 building for production...\ntransforming...\n✓ 120 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                        0.84 kB │ gzip:  0.43 kB\ndist/.vite/manifest.json               0.91 kB │ gzip:  0.28 kB\ndist/assets/lato-300-GkIoKc5W.woff2   31.59 kB\ndist/assets/lato-700-CFk2j1t1.woff2   32.04 kB\ndist/assets/lato-600-BbtMiJnp.woff2   32.45 kB\ndist/assets/lato-400-D8ozJx6k.woff2   32.54 kB\ndist/assets/index-DXmUiHvQ.css        28.32 kB │ gzip:  5.65 kB\ndist/assets/index-D-Rzcqig.js        277.93 kB │ gzip: 88.48 kB\n✓ built in 1.57s",
+      "required": true,
+      "at": "2026-08-06T03:21:56+00:00",
+      "rev": "23f1104"
+    },
+    "frontend:typecheck": {
+      "result": "pass",
+      "exit_code": 0,
+      "command": "npx tsc --noEmit",
+      "detail": "",
+      "required": true,
+      "at": "2026-08-06T03:21:59+00:00",
+      "rev": "23f1104"
+    },
+    "backend:unit": {
+      "result": "pass",
+      "exit_code": 0,
+      "command": "uv run --python 3.12 pytest -q",
+      "detail": "........................................................................ [ 31%]\n........................................................................ [ 62%]\n........................................................................ [ 93%]\n...............                                                          [100%]\n=============================== warnings summary ===============================\ntests/test_contract_conformance.py::test_every_contract_endpoint_exists\n  /home/david/Proyectos/Autonom-OS/backend/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n231 passed, 1 warning in 8.12s",
+      "required": true,
+      "at": "2026-08-06T03:22:08+00:00",
+      "rev": "23f1104"
+    },
+    "frontend:unit": {
+      "result": "pass",
+      "exit_code": 0,
+      "command": "npm run test",
+      "detail": "> autonomos-frontend@1.0.0 test\n> vitest run\n\n\n RUN  v2.1.9 /home/david/Proyectos/Autonom-OS/frontend\n\n ✓ src/test/estilos.test.ts (8 tests) 12ms\n ✓ src/copy/es.test.ts (6 tests) 7ms\n ✓ src/format/money.test.ts (5 tests) 5ms\n ✓ src/format/dates.test.ts (4 tests) 8ms\n ✓ src/test/captura.test.tsx (6 tests) 1493ms\n   ✓ criterion 2.8 — a complete expense in four interactions > saves in exactly four taps beyond typing the amount 341ms\n   ✓ criterion 13.2 — a cold open with no server > renders the Spanish \"cannot reach your server\" screen, not a blank 1028ms\n\n Test Files  5 passed (5)\n      Tests  29 passed (29)\n   Start at  22:22:08\n   Duration  3.17s (transform 430ms, setup 417ms, collect 869ms, tests 1.53s, environment 2.76s, prepare 502ms)\n\nstderr | src/test/captura.test.tsx > criterion 2.8 — a complete expense in four interactions > saves in exactly four taps beyond typing the amount\n⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.\n⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.",
+      "required": true,
+      "at": "2026-08-06T03:22:11+00:00",
+      "rev": "23f1104"
+    },
+    "backend:contract": {
+      "result": "pass",
+      "exit_code": 0,
+      "command": "uv run --python 3.12 pytest -q tests/test_contract_conformance.py",
+      "detail": "........................................                                 [100%]\n=============================== warnings summary ===============================\ntests/test_contract_conformance.py::test_every_contract_endpoint_exists\n  /home/david/Proyectos/Autonom-OS/backend/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n40 passed, 1 warning in 0.80s",
+      "required": true,
+      "at": "2026-08-06T03:22:13+00:00",
+      "rev": "23f1104"
+    },
+    "test_integrity": {
+      "result": "pass",
+      "files": 20,
+      "tests": 179,
+      "assertions": 437,
+      "at": "2026-08-06T03:22:13+00:00",
+      "baseline_revision": "247f6b044c77ac0832175b61e2bb5b38c863ac00",
+      "detail": "179 tests, 437 assertions across 20 files (static, repo-wide); no drop vs baseline 247f6b044 (0 / 0)",
+      "rev": "23f1104"
+    }
+  },
   "loops": {
     "review_impl": 0,
     "qa_impl": 0
@@ -214,5 +279,5 @@
       "note": "frontend: spawned"
     }
   ],
-  "updated_at": "2026-08-06T02:25:18+00:00"
+  "updated_at": "2026-08-06T03:22:13+00:00"
 }

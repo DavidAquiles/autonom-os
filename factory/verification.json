@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "$comment": "Deterministic gates. Results outrank any role's opinion. `required: false` records the result without failing the run — use it for checks whose absence changes what the chain can verify rather than whether it can proceed.",
+  "gates": {
+    "frontend:install": {
+      "command": "npm ci",
+      "required": false,
+      "cwd": "frontend"
+    },
+    "frontend:build": {
+      "command": "npm run build",
+      "required": true,
+      "cwd": "frontend"
+    },
+    "frontend:unit": {
+      "command": "npm run test",
+      "required": true,
+      "cwd": "frontend"
+    },
+    "frontend:typecheck": {
+      "command": "npx tsc --noEmit",
+      "required": true,
+      "cwd": "frontend"
+    },
+    "backend:unit": {
+      "command": "uv run --python 3.12 pytest -q",
+      "required": true,
+      "cwd": "backend"
+    },
+    "backend:contract": {
+      "command": "uv run --python 3.12 pytest -q tests/test_contract_conformance.py",
+      "required": true,
+      "cwd": "backend"
+    }
+  }
+}
