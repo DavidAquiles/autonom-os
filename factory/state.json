@@ -4,7 +4,7 @@
   "factory_tools": "/home/david/Proyectos/software_factory/tools",
   "mode": "greenfield",
   "has_frontend": true,
-  "stage": "implement",
+  "stage": "review",
   "gates_passed": [
     "kickoff",
     "approve_plan",
@@ -206,7 +206,36 @@
   },
   "baseline_revision": "247f6b044c77ac0832175b61e2bb5b38c863ac00",
   "blockers": [],
-  "deferred": [],
+  "deferred": [
+    {
+      "summary": "F4: generating-summary wire state near-unreachable after first ready month",
+      "evidence": "backend/autonomos/api/insights.py:99 'row = summaries_repo.latest_ready(conn) or summaries_repo.latest(conn)'; latest_ready selects status IN ('ready','empty') at repo/summaries.py:33-37 — Design Constraint 27 surface exists but its driving state cannot occur in steady use. Contract change for Architect.",
+      "location": null,
+      "severity": null,
+      "at": "2026-08-06T03:34:44+00:00"
+    },
+    {
+      "summary": "F5: failed-save banner red, Design Constraint 3 reserves red for destructive/validation",
+      "evidence": "frontend/src/components/ui/Panel.module.css:59-65 (.alarm -> --danger-wash/--danger-line/--danger); faithful to APPROVED mockup mockups/gasto-guardar-fallo.html:481 style=background:var(--danger-wash);border-color:#F0C3C8. Constraint has no colour for 'write failed and nothing was lost'. PM to widen constraint 3.",
+      "location": null,
+      "severity": null,
+      "at": "2026-08-06T03:34:44+00:00"
+    },
+    {
+      "summary": "F6: journal Todo list caps at 50 newest, no pagination control",
+      "evidence": "frontend/src/api/queries.ts:186-191 limit:50, response next_before never read; orphaned copy frontend/src/copy/es.ts:118 cargarMas:'Ver entradas mas antiguas' rendered nowhere. Server-side cursor implemented at backend/autonomos/api/journal.py:21-32. AC 7.1 letter met.",
+      "location": null,
+      "severity": null,
+      "at": "2026-08-06T03:34:44+00:00"
+    },
+    {
+      "summary": "F7: failed summary retried 3x back-to-back with no backoff",
+      "evidence": "backend/autonomos/scheduler.py:134-154 _drain_summaries re-enters run_summary same month with no delay; only cancelled outcomes counted (MAX_CANCEL_RETRIES). Three llm_unavailable failures burn all attempts in one tick while Ollama is down.",
+      "location": null,
+      "severity": null,
+      "at": "2026-08-06T03:34:44+00:00"
+    }
+  ],
   "history": [
     {
       "stage": "intake",
@@ -277,7 +306,12 @@
       "stage": "implement",
       "at": "2026-08-06T02:25:18+00:00",
       "note": "frontend: spawned"
+    },
+    {
+      "stage": "review",
+      "at": "2026-08-06T03:22:21+00:00",
+      "note": "stage implement -> review"
     }
   ],
-  "updated_at": "2026-08-06T03:22:13+00:00"
+  "updated_at": "2026-08-06T03:34:44+00:00"
 }
