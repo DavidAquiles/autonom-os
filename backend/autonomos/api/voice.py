@@ -16,7 +16,7 @@ import asyncio
 import logging
 import time
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, Request, UploadFile
 
 from ..arbiter import ArbiterTimeout, JobKind, get_arbiter
 from ..audio import looks_hallucinated, validate_audio
@@ -35,8 +35,25 @@ router = APIRouter()
 VALID_CONTEXTS = ("expense", "journal", "question")
 
 
+async def _watch_for_client_abort(request: Request, cancel: asyncio.Event) -> None:
+    """8.9: an abandoned transcription stops the sidecar work behind it.
+
+    The user switching to the manual form must not leave a whisper run holding
+    the arbiter's only slot for the rest of its timeout.
+    """
+    try:
+        while not cancel.is_set():
+            if await request.is_disconnected():
+                cancel.set()
+                return
+            await asyncio.sleep(0.2)
+    except asyncio.CancelledError:
+        return
+
+
 @router.post("/transcribe", response_model=TranscribeResponse)
 async def transcribe(
+    request: Request,
     audio: UploadFile = File(...),
     context: str = Form(...),
 ) -> dict:
@@ -64,6 +81,7 @@ async def transcribe(
     except ArbiterTimeout:
         raise ApiError(504, "transcription_timeout", "arbiter slot never freed")
 
+    watcher = asyncio.ensure_future(_watch_for_client_abort(request, cancel))
     try:
         result = await get_stt().transcribe(
             data,
@@ -82,6 +100,7 @@ async def transcribe(
         cancel.set()
         raise
     finally:
+        watcher.cancel()
         arbiter.release(lease)
 
     transcript = (result.text or "").strip()
