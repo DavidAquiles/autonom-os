@@ -17,6 +17,12 @@ generation, put every input and output path inside the project (or `$HOME`).
 The scratchpad directory under `/tmp` is fine for Python venvs and shell
 scratch, just not for anything Chromium itself writes or reads.
 
+**`localStorage` does not survive a SIGTERM.** Killing the Chromium process
+(`proc.kill()`) can drop writes made seconds earlier, so a second run on the same
+profile reads nothing and the bug looks like it is in the app. Shut down with the
+CDP `Browser.close` command and give it a moment. This cost one wrong conclusion
+while verifying the armed-origin mechanism across two browser processes.
+
 Driving it over the DevTools Protocol works well with no npm dependency: Node
 24 has a global `WebSocket`, so `/json/version` + a socket is enough. See
 `frontend/tools/cdp.mjs`. `CSS.forcePseudoState` is what makes `:hover`,

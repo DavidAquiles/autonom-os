@@ -22,3 +22,12 @@ at equal-or-higher specificity **and declaring it after** the rule it must beat,
 with a comment saying which rule that is. Then re-render; a passing audit is not
 the same as a correct picture. See `frontend/tools/README.md` and
 [[env-chromium-sandbox]].
+
+**A forced state can be silently lost, and then the capture is a lie.**
+`CSS.forcePseudoState` binds to a node id, so any re-render that replaces the
+element drops it and the shot comes out byte-identical to the default while
+being filed as hover/focus/active. This happened on the offline screen, which
+re-mounts when the health query settles into its error state. Two habits:
+`md5sum` the forced shot against its default — identical bytes mean the state
+never applied — and let the state settle (a wait) before forcing. `shots.mjs`
+now reports this as `ESTADO-PERDIDO`, but only for `forceText` shots.
