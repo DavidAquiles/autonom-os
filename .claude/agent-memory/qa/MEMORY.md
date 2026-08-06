@@ -1,0 +1,2 @@
+- [Autonom-OS QA environment](project_autonomos_qa_environment.md) — ports, fresh-DB rule, and two "unreachable" states that are actually reachable.
+- [Autonom-OS QA verdicts](project_autonomos_qa_verdicts.md) — the four failing criteria from the 2026-08-06 pass and which surfaces stay fragile.

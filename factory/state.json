@@ -4,7 +4,7 @@
   "factory_tools": "/home/david/Proyectos/software_factory/tools",
   "mode": "greenfield",
   "has_frontend": true,
-  "stage": "review",
+  "stage": "qa",
   "gates_passed": [
     "kickoff",
     "approve_plan",
@@ -175,7 +175,7 @@
   },
   "loops": {
     "review_impl": 1,
-    "qa_impl": 0
+    "qa_impl": 1
   },
   "caps": {
     "review_impl": 3,
@@ -240,6 +240,20 @@
       "location": null,
       "severity": null,
       "at": "2026-08-06T17:31:54+00:00"
+    },
+    {
+      "summary": "D4: amounts inside LLM-generated summary prose not in Colombian convention",
+      "evidence": "July summary wrote '313.000 pesos' (correct); June summary wrote '346,000' (comma). Same prompt, same model. App formatter never wrong; this is model prose it does not touch. Whether 2.5/constraint 21 reach LLM text is PM's call.",
+      "location": null,
+      "severity": null,
+      "at": "2026-08-06T18:51:18+00:00"
+    },
+    {
+      "summary": "D6: 21-digit amount echoes as 1e.+21 in the MONTO field (cosmetic)",
+      "evidence": "Value passes through Number to 1e+21 then thousands formatter inserts a dot. Submitting is correctly refused in Spanish and nothing is saved. QA screenshot 96-monto-absurdo.png.",
+      "location": null,
+      "severity": null,
+      "at": "2026-08-06T18:51:18+00:00"
     }
   ],
   "history": [
@@ -332,7 +346,17 @@
       "stage": "review",
       "at": "2026-08-06T16:53:06+00:00",
       "note": "frontend: dead"
+    },
+    {
+      "stage": "qa",
+      "at": "2026-08-06T17:32:19+00:00",
+      "note": "stage review -> qa"
+    },
+    {
+      "stage": "qa",
+      "at": "2026-08-06T18:51:18+00:00",
+      "note": "qa_impl rework 1/3"
     }
   ],
-  "updated_at": "2026-08-06T17:31:54+00:00"
+  "updated_at": "2026-08-06T18:51:18+00:00"
 }
