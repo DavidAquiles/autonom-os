@@ -1,0 +1,2 @@
+- [Autonom-OS project context](project_autonomos.md) — what the app is, and which factory artifacts bind backend work
+- [Factory lane discipline](feedback_lane_discipline.md) — never `git add -A` here; another implementer shares this working tree
