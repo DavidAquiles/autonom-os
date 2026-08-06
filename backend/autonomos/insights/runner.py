@@ -131,12 +131,11 @@ async def _run_question(job_id: str, question: str, cancel: asyncio.Event) -> No
             return
 
         try:
-            remaining = deadline - time.time()
-            if remaining < settings.llm_min_start_budget_s:
-                # Never start generation that cannot finish (KD-11).
-                jobs_repo.finish_failed(conn, job_id, "llm_timeout")
-                return
-            await _generate_answer(conn, job_id, question, facts, lease, remaining)
+            # The *deadline* is handed on, never a duration derived from it.
+            # `_generate_answer` re-reads what is left before each attempt,
+            # including the strict retry, so the whole job stays inside
+            # `created_at + LLM_DEADLINE_ANSWER_S` (KD-11, AC 11.12).
+            await _generate_answer(conn, job_id, question, facts, lease, deadline)
         finally:
             arbiter.release(lease)
     except Exception as exc:  # never leave a job row hanging
@@ -157,8 +156,15 @@ async def _generate_answer(
     question: str,
     facts: FactSet,
     lease: Lease,
-    budget_s: float,
+    deadline: float,
 ) -> None:
+    """Generate, guard, and at most one strict retry — all inside `deadline`.
+
+    `deadline` is an **absolute** epoch time (`created_at + LLM_DEADLINE_ANSWER_S`),
+    never a duration. Every attempt re-derives its own `timeout_s` from it, so a
+    retry inherits what is actually left rather than a fresh allowance: a first
+    generation that spends 76 s of the 110 s leaves the retry 34 s, not 110.
+    """
     settings = get_settings()
     llm = get_llm()
     buffer: list[str] = []
@@ -186,11 +192,29 @@ async def _generate_answer(
     while True:
         attempt += 1
         buffer.clear()
+
+        # Re-read the remaining budget before *every* attempt, the retry
+        # included. The contract's `llm_timeout` covers both halves of this:
+        # "the 110 s deadline from created_at elapsed, **or too little of it
+        # remained to start**".
+        remaining_s = deadline - time.time()
+        if remaining_s < settings.llm_min_start_budget_s:
+            log.info(
+                "job %s: %.1fs left of its deadline on attempt %d, below the "
+                "%.0fs floor — terminating rather than starting",
+                job_id,
+                remaining_s,
+                attempt,
+                settings.llm_min_start_budget_s,
+            )
+            jobs_repo.finish_failed(conn, job_id, "llm_timeout")
+            return
+
         try:
             text = await llm.generate(
                 prompts.answer_messages(question, facts, strict=strict),
                 max_tokens=settings.llm_max_tokens_answer,
-                timeout_s=budget_s,
+                timeout_s=remaining_s,
                 on_token=on_token,
                 cancel=lease.cancel,
             )
@@ -224,11 +248,10 @@ async def _generate_answer(
         if attempt >= 2:
             jobs_repo.finish_failed(conn, job_id, "unverifiable_figures")
             return
+        # Loop for one strict retry. Whether it can start at all is decided at
+        # the top of the loop against the deadline, not against a decremented
+        # duration — the retry gets the time that is left and nothing more.
         strict = True
-        budget_s = budget_s - 1.0
-        if budget_s < settings.llm_min_start_budget_s:
-            jobs_repo.finish_failed(conn, job_id, "unverifiable_figures")
-            return
 
 
 # ---------------------------------------------------------------------------

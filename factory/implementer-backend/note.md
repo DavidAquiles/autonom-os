@@ -15,7 +15,7 @@ tick and the nightly `VACUUM INTO` snapshot. `ops/` carries four systemd **user*
 units, a setup script that runs `loginctl enable-linger`, an `mkcert` helper for
 the LAN fallback origin, and a runbook.
 
-231 backend tests pass. Beyond the suite, the stack was exercised live against the
+241 backend tests pass. Beyond the suite, the stack was exercised live against the
 **real** Ollama and whisper.cpp sidecars over HTTP: an expense saved, a 4 s clip
 transcribed in 5.9 s, a Spanish answer returned in 16.4 s with correct facts, and
 a running question preempted by an arriving transcription. Two live findings
@@ -39,7 +39,7 @@ command I ran on this host today.
 cd backend
 ~/.local/bin/uv venv --python ~/.local/bin/python3.12 .venv
 ~/.local/bin/uv pip install -e ".[dev]"
-.venv/bin/python -m pytest -q                      # 231 tests
+.venv/bin/python -m pytest -q                      # 241 tests
 .venv/bin/python -m autonomos.serve                # both origins, one process
 ```
 
@@ -144,6 +144,60 @@ changes a shape, a status code, or a field name:
 
 No escalation was needed; nothing here changes a component, an interface, a data
 flow, or a technology choice. Four things are worth Reviewer's eye.
+
+**Reviewer round 1 — F1 and F3, both fixed.** Both were real defects in my code and
+neither needed a design change.
+
+*F1 — the NumericGuard retry escaped the answer deadline.* `_generate_answer` took
+a `budget_s` duration and the retry did `budget_s = budget_s - 1.0`, so a second
+generation got a near-fresh allowance however long the first had run; a journal
+question could reach ~184 s against 11.12's 120 s, and the
+`< llm_min_start_budget_s` check compared the wrong quantity so it could never
+fire. The function now takes the **absolute deadline** and re-derives
+`timeout_s = deadline - time.time()` before *every* attempt, with the min-start
+check inside the loop so the strict retry is guarded too. Under-budget terminates
+`llm_timeout` without calling the provider — which is what the contract already
+says that code means: "the deadline elapsed, **or too little of it remained to
+start**".
+
+A first attempt at this was reverted by the coordinator, correctly: I had changed
+the call site to pass `deadline` while the callee still treated it as a duration,
+which would have handed the provider a timeout of ~1.78e9 seconds. **All 231 tests
+passed against that state**, so the suite gained a test that asserts the quantity
+itself rather than the outcome —
+`test_the_provider_is_never_handed_a_timestamp_as_a_timeout` fails with
+`timeout_s=1786034757.531 is not a duration inside the 110.0s answer window`. The
+fakes now record every `timeout_s` they are handed, for the LLM and the sidecar
+both.
+
+*F3 — the guard rejected figures its own prompt authorised.* `render_facts` writes
+top-expense dates (`el 2026-07-14`), journal-excerpt dates and the user's own
+descriptions into DATOS and rule 3 authorises repeating anything there, while
+`allowed_values` hand-listed only aggregates and the period bounds. So *"el 14 de
+julio"* was rejected, burned the retry and terminated `unverifiable_figures` about
+a correctly answered question. Rather than add the missing cases to the hand-list —
+which would drift again the next time a prompt line is added — **the allowed set is
+now scanned out of the rendered DATOS block itself**, so the guard's set is by
+construction the numbers the model was shown. That is KD-10 stage 4 implemented
+literally: DATOS *is* the fact set, every line of it from a SQL aggregate or the
+user's own stored text. The core property is untouched and pinned by
+`test_f3_widening_did_not_weaken_the_core_property`: invented totals, computed
+averages, out-of-set percentages and invented counts are all still caught.
+
+One honest limit surfaced while testing F3 and is now asserted rather than left
+implicit. The guard checks *membership*, not meaning, so a small integer present
+for one reason authorises it everywhere — `7` is allowed by the period month
+`2026-07` alone. I initially wrote a test expecting `"Tienes 7 entradas"` to be
+caught; it is not, and **it was not before F3 either** (the period bounds always
+contributed year/month/day — I verified this against the pre-change code). KD-10
+says as much where it explains that a correct figure for the wrong period is
+something NumericGuard cannot see; the router's `period_unrecognised` is what
+covers that. Recorded in
+`test_the_guard_is_membership_not_meaning_and_this_predates_f3`.
+
+**F2, F4 and F7 are not mine and were not touched.** F2 is the frontend's and its
+fix may need a contract addition; F4 (the `generating` surface) and F7 (retry
+backoff) are recorded as deferred.
 
 **1. Two origins, one process — a tension between KD-2 and KD-3, resolved without
 changing either.** KD-2 requires a uvicorn TLS listener on `${LAN_BIND_ADDR}:8443`
@@ -412,6 +466,6 @@ remote service; no key, no account. Verified by inspection.
 | same, before the cancel fix | 17.6 s |
 | finance question, real Ollama, HTTP + polling | 16.4 s |
 | three questions in `live_check llm` | 4.6 s, 17.0 s, 39.6 s |
-| backend test suite | 231 tests, ~8 s |
+| backend test suite | 241 tests, ~11 s |
 
 `elapsed_ms` is logged for every transcription and every job, as R9 asks.

@@ -34,6 +34,11 @@ class FakeLLM:
         self.delay_s = 0.0
         self.raise_error: Exception | None = None
         self.calls: list[list[Message]] = []
+        # Every `timeout_s` the runner handed us. Recorded because a budget that
+        # is silently an absolute timestamp rather than a duration still
+        # "works" — the call succeeds, unbounded — and no assertion about
+        # status codes or answers can see it.
+        self.timeouts: list[float] = []
 
     async def health(self) -> bool:
         return self.healthy
@@ -49,6 +54,7 @@ class FakeLLM:
         cancel=None,
     ) -> str:
         self.calls.append(list(messages))
+        self.timeouts.append(timeout_s)
         if self.raise_error is not None:
             raise self.raise_error
         elapsed = 0.0
@@ -72,11 +78,13 @@ class FakeSTT:
         self.healthy = True
         self.delay_s = 0.0
         self.raise_error: Exception | None = None
+        self.timeouts: list[float] = []
 
     async def health(self) -> bool:
         return self.healthy
 
     async def transcribe(self, wav_bytes, *, language, timeout_s, cancel=None):
+        self.timeouts.append(timeout_s)
         if self.raise_error is not None:
             raise self.raise_error
         if self.delay_s:
