@@ -476,9 +476,33 @@ narrows).
 ### KD-11. Long insight work is a job with polling, not a streamed connection
 
 `POST /api/insights/questions` returns `202` with a `job_id` immediately (satisfying "working state
-within 1 second", 11.12). The client polls once a second; the job row carries `elapsed_ms` and
-`partial_answer`, so the UI has something that visibly changes over time (constraint 25) and can
-even render text as it arrives. `DELETE` cancels (11.13).
+within 1 second", 11.12). The client polls once a second; the job carries `elapsed_ms`, which
+visibly changes over time and satisfies constraint 25 on its own. `DELETE` cancels (11.13).
+
+**No LLM-generated text reaches a client before NumericGuard has passed on the complete output.**
+`partial_answer` is therefore **not** on the wire. It was, and it was wrong: the guard runs after
+generation while a live preview renders during it, so a figure could be shown for forty seconds and
+then retracted when the finished text failed validation and the job terminated
+`unverifiable_figures`. A number shown and withdrawn was still shown, and 11.2 says figures the
+user sees must match the Finances screen.
+
+This is the same ruling as `source` in the Data model, for the same reason: **a field present in
+the contract is a field a component will eventually display, so the fix is to not send it.** The
+mockup rendered a live unvalidated total precisely because the contract permitted it.
+
+Rejected: **masking numeric runs in the partial** (ships deliberately mangled prose and still
+streams unvalidated claims — "gastaste mucho más en Mercado" needs no digits to be wrong);
+**running the guard incrementally** (a half-streamed token is not yet a number, so the guard would
+have to hold back a tail it cannot size, adding real complexity to the streaming path to rescue a
+nice-to-have). `insight_jobs.partial_answer` **stays as a column** for server-side diagnostics —
+stored, never serialised.
+
+**Consequence for progress display, which the frontend should keep as it has it.** The API exposes
+no completion fraction for generation and cannot: token counts do not map to remaining time at
+these rates. So a **bounded** wait whose endpoint is known — recording, hard-stopped at 30 s — may
+show a determinate meter, and an **unbounded** wait — transcription, insight generation — shows
+elapsed time only. Never a determinate bar for the latter; constraint 28 forbids implying a
+completion time nobody knows, and this design has no number to give one.
 
 **A second question is rejected, not queued.** A22 allows one insight at a time and there is one
 user; if a question is already `queued` or `running`, `POST` returns `409 busy` and the client
@@ -762,10 +786,18 @@ backend env var so the frontend implementer never needs to touch backend code, a
 
 ### Frontend structure
 
-Route shells: `/finanzas` (default landing, 1.2), `/finanzas/mes`, `/finanzas/analisis`, `/diario`,
-`/gimnasio`. Persistent bottom navigation with the three destinations (1.1, constraint 11) and a
-per-module capture bar in the thumb zone with *voice* and *manual* (1.4, constraint 9) — on
-Finances and Journal only, never on `/gimnasio` (KD-16).
+Route shells: `/finanzas` (default landing, 1.2), `/finanzas/mes`, `/finanzas/analisis`,
+`/finanzas/ajustes`, `/diario`, `/gimnasio`. Persistent bottom navigation with the three
+destinations (1.1, constraint 11) and a per-module capture bar in the thumb zone with *voice* and
+*manual* (1.4, constraint 9) — on Finances and Journal only, never on `/gimnasio` (KD-16).
+
+**`/finanzas/ajustes` is where three criteria that had endpoints but no screen live.** `PATCH` and
+`DELETE` on categories and payment methods, and `GET /api/export`, all existed in the contract with
+nowhere in the UI to invoke them — a gap the mockup pass caught. Renaming (3.3), removing with the
+in-use warning (3.4) and exporting (14.2) belong on one quiet settings sub-route inside Finances,
+on the same precedent as `/finanzas/analisis`: a sub-route, not a fourth tab, so 1.1's "exactly
+three" holds. Creating a category mid-expense (3.2) stays in the form where it is needed; ajustes
+is for the maintenance that is not part of capture.
 
 **The insights area lives inside Finances; it is not a fourth destination.** 1.1 requires *exactly*
 three top-level destinations and constraint 11 requires those three from every screen, so insights
@@ -821,6 +853,8 @@ Seven tables plus two alias tables. Full DDL is the backend implementer's; the s
 - **`insight_jobs`** — `id (uuid)`, `question`, `status ('queued'|'running'|'done'|'failed'|
   'cancelled')`, `partial_answer`, `answer`, `facts_json`, `error_code`, `created_at`,
   `started_at`, `finished_at`. Persisted so a job survives a page reload (13.3).
+  `partial_answer` is **server-side diagnostics only and is never serialised to a client** — it
+  holds text that NumericGuard has not yet validated (KD-11).
 - **`meta`** — `key`/`value`, holds `schema_version`.
 
 **`source` is stored but never rendered.** 9.5 and 10.4 require a voice-captured record to be
@@ -1014,7 +1048,7 @@ whose values are a closed vocabulary the frontend maps directly.
 
 ### GET /api/insights/questions/{job_id}
 - response: `200 { "job_id": string, "status": "queued"|"running"|"done"|"failed"|"cancelled",
-             "question": string, "elapsed_ms": int, "partial_answer": string|null, "answer": string|null,
+             "question": string, "elapsed_ms": int, "answer": string|null,
              "facts": { "period_label": string, "period_start": date, "period_end": date, "period_assumed": bool,
                         "domain": "finances"|"journal"|"both",
                         "total_cop": int|null, "expense_count": int|null,
@@ -1023,7 +1057,7 @@ whose values are a closed vocabulary the frontend maps directly.
                         "journal_truncated": bool }|null,
              "error_code": string|null, "created_at": iso8601, "finished_at": iso8601|null }`
 - errors:   `404 not_found`
-- notes:    poll at ~1 s. `elapsed_ms` and `partial_answer` both change over time, so the UI has genuine progress rather than a static spinner. Terminal `error_code` values: `insufficient_data` (too little recorded data to say anything), `period_unrecognised` (the question names a period the router cannot resolve — answering about a different period would be exactly the fabrication 11.11 forbids), `unverifiable_figures` (a figure was produced that the recorded data does not support — surfaced as "cannot answer", never as a fabricated number), `llm_timeout` (the 110 s deadline from `created_at` elapsed, or too little of it remained to start), `preempted` (a voice capture took priority — KD-12; the job is not restarted automatically and the client should invite re-asking), `llm_unavailable`. `period_assumed` is true when the question named no period and the current month was used, so the client can label what it answered about. `journal_truncated` with the two counts says the context was cut; the client **must** surface it and the answer text is also required to admit it. `answer` being Spanish and free of outside facts (11.7, 11.1) is **prompt-enforced, not guarded** — see the end of KD-10.
+- notes:    poll at ~1 s. `elapsed_ms` changes over time, which is what gives the UI genuine progress rather than a static spinner; it is the **only** progress signal, and no completion fraction exists or may be implied. **`answer` is `null` until the job is `done`** — no generated text is ever returned mid-flight, because NumericGuard has not yet run on it (KD-11). Terminal `error_code` values: `insufficient_data` (too little recorded data to say anything), `period_unrecognised` (the question names a period the router cannot resolve — answering about a different period would be exactly the fabrication 11.11 forbids), `unverifiable_figures` (a figure was produced that the recorded data does not support — surfaced as "cannot answer", never as a fabricated number), `llm_timeout` (the 110 s deadline from `created_at` elapsed, or too little of it remained to start), `preempted` (a voice capture took priority — KD-12; the job is not restarted automatically and the client should invite re-asking), `llm_unavailable`. `period_assumed` is true when the question named no period and the current month was used, so the client can label what it answered about. `journal_truncated` with the two counts says the context was cut; the client **must** surface it and the answer text is also required to admit it. `answer` being Spanish and free of outside facts (11.7, 11.1) is **prompt-enforced, not guarded** — see the end of KD-10.
 - requirements: 11.1, 11.2, 11.3, 11.5, 11.7, 11.8, 11.9, 11.11, 11.12
 
 ### DELETE /api/insights/questions/{job_id}
@@ -1077,6 +1111,12 @@ across the whole design, not only across the HTTP surface.
   directly on the default screen removes it. `requirements: 2.8, 3.2`
 - **Destructive confirmation** — expense and journal deletion each present a confirmation step
   before the `DELETE` call. `requirements: 5.2`
+- **Settings screen (`/finanzas/ajustes`)** — the screen for maintenance that is not capture:
+  rename a category or payment method and see the new name on existing expenses; remove one, with
+  the in-use warning composed from `error.details.affected_expenses` and a confirmation before the
+  `confirm=true` retry; and download the full export. A sub-route inside Finances, reached from the
+  Finances screens; the bottom navigation still carries exactly three destinations.
+  `requirements: 3.3, 3.4, 14.2`
 - **Voice capture UI** — unmistakable "listening now" state distinct from idle, with stop and
   cancel; cancel discards locally and issues no request; microphone permission denial is explained
   and leaves the manual path fully working; an in-flight transcription can be abandoned for the
@@ -1085,11 +1125,14 @@ across the whole design, not only across the HTTP surface.
   when the user submits the form. `requirements: 8.6`
 - **Edited values win** — a field the user changed is sent as edited; a late category suggestion
   never overwrites a touched field. `requirements: 9.4, 10.3`
-- **Live waiting states** — insight waits render `elapsed_ms` and `partial_answer` from the poll;
-  transcription waits render a **client-side** phase-plus-elapsed indicator, since that request has
-  no server progress channel; both visibly change rather than spinning. Waits over ~10 s offer
-  cancel and say the work is happening on the user's own computer; nothing implies an instant AI
-  response. `requirements: 8.8, 11.5, 11.12, 11.13`
+- **Live waiting states** — insight waits render `elapsed_ms` from the poll; transcription waits
+  render a **client-side** phase-plus-elapsed indicator, since that request has no server progress
+  channel; both visibly change rather than spinning. **No generated text is displayed before the
+  job is `done`** — there is none on the wire to display (KD-11). A wait with a known endpoint
+  (recording, capped at 30 s) may use a determinate meter; an unbounded wait (transcription,
+  generation) shows elapsed time only and never a determinate bar. Waits over ~10 s offer cancel
+  and say the work is happening on the user's own computer; nothing implies an instant AI response.
+  `requirements: 8.8, 11.5, 11.12, 11.13`
 - **Partial answers say they are partial** — when `facts.journal_truncated` is true the client
   **must** surface it alongside the answer, using `journal_entries_used` and
   `journal_entries_considered`. This is an obligation, not an option: the prompt is required to make
@@ -1364,6 +1407,20 @@ Left to the Implementers, inside the structural bounds above.
 - *`journal_truncated` capability versus obligation.* Resolved as an obligation.
 - *GiB/GB mixed in the memory subtraction.* Corrected to ~2.28 GB of headroom, with the units
   stated and the pre-load nature of the reading noted so the table checks itself.
+
+**Resolved in revision 4, after the mockup pass**
+- *`partial_answer` bypassed NumericGuard.* The guard runs after generation; the contract streamed
+  generated text during it, and the mockup rendered an unvalidated peso total exactly as permitted.
+  Resolved by removing `partial_answer` from the wire entirely — no LLM-generated text reaches a
+  client before the guard has passed on the complete output (KD-11). The column stays for
+  server-side diagnostics. Masking digits and incremental validation were both rejected; the
+  reasoning is in KD-11.
+- *Three criteria had endpoints but no screen.* 3.3, 3.4 and 14.2 were marked covered because
+  `PATCH`/`DELETE` on categories and `GET /api/export` exist, and nobody had checked they were
+  reachable in the UI. Resolved by recording `/finanzas/ajustes` as a sub-route inside Finances,
+  on the `/finanzas/analisis` precedent, with the bottom navigation still carrying exactly three
+  destinations. Found by the frontend at mockup time, which is the cheapest place it could have
+  been found.
 
 **Open for verification, not blocking**
 - *Spanish accuracy of whisper `base`.* Its speed advantage is measured (1.8 s vs 6.4 s on the
