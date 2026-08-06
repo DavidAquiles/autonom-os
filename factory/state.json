@@ -175,7 +175,7 @@
     }
   },
   "loops": {
-    "review_impl": 0,
+    "review_impl": 1,
     "qa_impl": 0
   },
   "caps": {
@@ -311,7 +311,12 @@
       "stage": "review",
       "at": "2026-08-06T03:22:21+00:00",
       "note": "stage implement -> review"
+    },
+    {
+      "stage": "review",
+      "at": "2026-08-06T03:34:48+00:00",
+      "note": "review_impl rework 1/3"
     }
   ],
-  "updated_at": "2026-08-06T03:34:44+00:00"
+  "updated_at": "2026-08-06T03:34:48+00:00"
 }
