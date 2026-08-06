@@ -214,6 +214,10 @@ async def _generate_answer(
             text = await llm.generate(
                 prompts.answer_messages(question, facts, strict=strict),
                 max_tokens=settings.llm_max_tokens_answer,
+                # Nothing here wants creativity: the job is to restate stored
+                # facts. Sampling variety is where the off-record clauses of
+                # QA D2 came from.
+                temperature=0.0,
                 timeout_s=remaining_s,
                 on_token=on_token,
                 cancel=lease.cancel,
@@ -302,6 +306,7 @@ async def run_summary(period_key: str) -> str:
                 text = await llm.generate(
                     prompts.summary_messages(facts, strict=strict),
                     max_tokens=settings.llm_max_tokens_summary,
+                    temperature=0.0,
                     timeout_s=settings.llm_timeout_summary_s,
                     cancel=lease.cancel,
                 )

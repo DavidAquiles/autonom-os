@@ -40,6 +40,13 @@ def row_to_expense(row: sqlite3.Row) -> dict:
     }
 
 
+# SQLite stores a signed 64-bit integer and raises OverflowError above it. That
+# is a real boundary of the store, not an invented product cap, so it is the one
+# enforced — an amount past it was reaching the driver and coming back as a 500
+# carrying a Python exception string (QA D5).
+AMOUNT_MAX = 2**63 - 1
+
+
 def _validate_amount(value, errors: list[dict], required: bool) -> int | None:
     if value is None:
         if required:
@@ -51,6 +58,9 @@ def _validate_amount(value, errors: list[dict], required: bool) -> int | None:
     if value <= 0:
         errors.append(field_error("amount_cop", "must_be_positive"))
         return None
+    if value > AMOUNT_MAX:
+        errors.append(field_error("amount_cop", "too_long"))
+        return None
     return value
 
 
@@ -61,7 +71,18 @@ def _validate_fk(
     value,
     errors: list[dict],
     required: bool,
+    *,
+    allow_archived: int | None = None,
 ) -> int | None:
+    """Resolve a category/method id.
+
+    An **archived** row is rejected: 3.4 says a removed category is gone from
+    future selection, and the API enforcing that too is defence in depth behind
+    the UI, which already hides the chip (QA D7). `allow_archived` carries the
+    expense's current value on a PATCH, so editing the amount of an old expense
+    filed under a since-archived category keeps working — only *moving* an
+    expense onto an archived one is refused.
+    """
     if value is None:
         if required:
             errors.append(field_error(field, "required"))
@@ -70,6 +91,9 @@ def _validate_fk(
         errors.append(field_error(field, "unknown_id"))
         return None
     if not lookup.exists(conn, table, value):
+        errors.append(field_error(field, "unknown_id"))
+        return None
+    if value != allow_archived and lookup.is_archived(conn, table, value):
         errors.append(field_error(field, "unknown_id"))
         return None
     return value
@@ -150,7 +174,10 @@ def get(conn: sqlite3.Connection, expense_id: int) -> dict:
 
 
 def update(conn: sqlite3.Connection, expense_id: int, payload: dict) -> dict:
-    if conn.execute("SELECT 1 FROM expenses WHERE id = ?", (expense_id,)).fetchone() is None:
+    existing = conn.execute(
+        "SELECT category_id, payment_method_id FROM expenses WHERE id = ?", (expense_id,)
+    ).fetchone()
+    if existing is None:
         raise NotFound("expense")
     errors: list[dict] = []
     sets: list[str] = []
@@ -163,7 +190,8 @@ def update(conn: sqlite3.Connection, expense_id: int, payload: dict) -> dict:
             values.append(amount)
     if "category_id" in payload:
         cid = _validate_fk(
-            conn, lookup.CATEGORIES, "category_id", payload["category_id"], errors, True
+            conn, lookup.CATEGORIES, "category_id", payload["category_id"], errors, True,
+            allow_archived=existing["category_id"],
         )
         if cid is not None:
             sets.append("category_id = ?")
@@ -176,6 +204,7 @@ def update(conn: sqlite3.Connection, expense_id: int, payload: dict) -> dict:
             payload["payment_method_id"],
             errors,
             True,
+            allow_archived=existing["payment_method_id"],
         )
         if mid is not None:
             sets.append("payment_method_id = ?")

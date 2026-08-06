@@ -61,6 +61,39 @@ def test_no_temporal_cue_defaults_to_the_current_month_and_says_so():
     assert resolved.period_assumed is True
 
 
+def test_d2_a_journal_question_is_not_fed_expense_facts(db):
+    """QA D2's inventions were finance-flavoured ("ingresos vs desembolsos") on a
+    *journal* question. `preocupado` was not in the journal lexicon, so the
+    question routed to `both` and the model had spending data in front of it to
+    weave from. Routing it to `journal` removes the material structurally."""
+    assert resolve_domain(db, "¿qué me ha preocupado este mes?") == "journal"
+    for variant in (
+        "¿qué me preocupaba en julio?",
+        "¿en qué he estado pensando?",
+        "¿cómo me he sentido este mes?",
+        "¿qué reflexiones escribí?",
+    ):
+        assert resolve_domain(db, variant) == "journal", variant
+
+
+def test_d2_the_prompt_forbids_the_topics_the_app_does_not_record():
+    """A regression pin on the prompt text itself: these prohibitions are the
+    only mechanism behind 11.1, which KD-10 states is prompt-enforced and
+    unguarded. If someone reverts them, this fails."""
+    from autonomos.insights import prompts
+
+    for banned in ("ingresos", "saldos", "ahorros", "deudas", "presupuestos", "inversiones"):
+        assert banned in prompts.SYSTEM_ANSWER
+        assert banned in prompts.SYSTEM_SUMMARY
+    # …and the shapes that produced D2 and D8 respectively.
+    assert "todo tu dinero" in prompts.SYSTEM_ANSWER
+    assert "paréntesis" in prompts.SYSTEM_ANSWER
+    assert "paréntesis" in prompts.SYSTEM_SUMMARY
+    # The strict retry keeps every prohibition of the base prompt.
+    assert prompts.SYSTEM_ANSWER in prompts.SYSTEM_ANSWER_STRICT
+    assert prompts.SYSTEM_SUMMARY in prompts.SYSTEM_SUMMARY_STRICT
+
+
 def test_domain_detection(db):
     assert resolve_domain(db, "¿cuánto gasté en comida?") == "finances"
     assert resolve_domain(db, "¿qué escribí en el diario?") == "journal"
@@ -189,30 +222,61 @@ def test_f3_widening_did_not_weaken_the_core_property():
     assert guard.check("Tienes 88 entradas de diario.", facts).ok is False
 
 
-def test_the_guard_is_membership_not_meaning_and_this_predates_f3():
-    """A documented limit, asserted so nobody mistakes it for a regression.
+def test_d8_a_date_component_cannot_launder_itself_into_a_count():
+    """QA D8, exactly as observed: a summary said the user spent a total
+    "durante los días con algún gasto (20)" where July had 3. `20` was accepted
+    only because 20 July was a top-expense date.
 
-    The guard checks that a figure *appears* in the fact set, not that it is
-    used correctly, so a small integer present for one reason authorises it
-    everywhere — `7` is allowed by the period month `2026-07` alone. This is
-    true of the pre-F3 guard too (the period bounds always contributed their
-    year/month/day), and KD-10 says as much when it explains that a correct
-    figure for the wrong period is something NumericGuard cannot see. What
-    covers that is the router's `period_unrecognised`, not this.
+    A date may be stated as a date; it may not become a quantity.
     """
-    bare = sample_facts()  # no top expenses, no excerpts: the pre-F3 shape
-    assert 7.0 in guard.allowed_values(bare)
-    assert guard.check("Hay 7 entradas.", bare).ok
+    facts = facts_with_prompt_details()  # top expense dated 2026-07-14
+    assert guard.check("Gastó 250.000 durante los días con gasto (14).", facts).ok is False
+    assert guard.check("Tuviste 22 gastos en el periodo.", facts).ok is False
+    # …while the same numbers said as dates remain perfectly sayable.
+    assert guard.check("El gasto más grande fue el 14 de julio.", facts).ok
+    assert guard.check("El 22 de julio escribiste sobre el bar.", facts).ok
 
 
-def test_f3_the_allowed_set_is_derived_from_what_the_model_was_shown():
+def test_d8_the_period_month_no_longer_authorises_a_bare_count():
+    """The narrower case that made D8 possible at all: the period `2026-07`
+    used to put `7` into a single flat set, so "Hay 7 entradas" passed against
+    a period holding two. Typing the set closes it."""
+    bare = sample_facts()
+    numbers = guard.fact_numbers(bare)
+    assert 7.0 not in numbers.quantities
+    assert (2026, 7, 1) in numbers.dates
+    assert guard.check("Hay 7 entradas.", bare).ok is False
+
+
+def test_the_guard_is_membership_not_meaning_and_this_is_the_residual():
+    """The limit that remains, asserted so nobody mistakes it for coverage.
+
+    Within a type the guard still checks presence, not use: a real figure
+    attached to the wrong thing passes, because 150.000 *is* in the fact set —
+    it is Comida's amount, not the month total. Catching that needs semantics,
+    which KD-10 deliberately does not buy (a classifier would cost a second
+    inference inside the same 120 s budget). What it does buy is that the
+    figure is always one the user can find on their own screen.
+    """
+    facts = sample_facts()  # total 250.000, Comida 150.000
+    assert guard.check("Gastaste 150.000 pesos en total.", facts).ok
+
+
+def test_f3_the_fact_set_is_derived_from_what_the_model_was_shown():
     """The guard's set and the prompt's DATOS block cannot drift, because the
-    set is scanned out of that block."""
+    set is scanned out of that block — and each figure keeps its kind."""
     from autonomos.insights.prompts import render_facts
 
     facts = facts_with_prompt_details()
-    allowed = guard.allowed_values(facts)
+    numbers = guard.fact_numbers(facts)
     rendered = render_facts(facts)
     assert "2026-07-14" in rendered and "cena para 4 personas" in rendered
-    for value in (45000.0, 14.0, 22.0, 4.0, 30000.0):
-        assert value in allowed, f"{value} is in DATOS but not in the allowed set"
+
+    # Quantities the prompt showed, including digits inside the user's own text.
+    for value in (45000.0, 4.0, 30000.0):
+        assert value in numbers.quantities, f"{value} is in DATOS but not a quantity"
+    # Dates the prompt showed, kept as dates and *not* as quantities (D8).
+    assert (2026, 7, 14) in numbers.dates
+    assert (2026, 7, 22) in numbers.dates
+    assert 14.0 not in numbers.quantities
+    assert 22.0 not in numbers.quantities

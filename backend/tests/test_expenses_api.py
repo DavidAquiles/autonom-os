@@ -44,6 +44,84 @@ def test_2_2_amount_must_be_present_and_positive(client):
         assert {"field": "amount_cop", "reason": reason} in error["fields"]
 
 
+def test_d5_an_amount_past_the_storage_limit_is_a_clean_validation_error(client):
+    """QA D5: `999999999999999999999` reached the driver and came back as a 500
+    carrying `OverflowError: Python int too large to convert to SQLite INTEGER`.
+    Every other bad amount gets a clean rejection naming the field; so does this
+    one now."""
+    response = make_expense(client, amount_cop=999999999999999999999)
+    assert response.status_code == 400
+    error = response.json()["error"]
+    assert error["code"] == "validation"
+    assert {"field": "amount_cop", "reason": "too_long"} in error["fields"]
+    assert client.get("/api/expenses").json()["total_count"] == 0
+
+
+def test_d5_the_largest_storable_amount_is_still_accepted(client):
+    assert make_expense(client, amount_cop=2**63 - 1).status_code == 201
+    assert make_expense(client, amount_cop=2**63).status_code == 400
+
+
+def test_d5_an_absurd_amount_on_patch_is_also_rejected(client):
+    expense_id = make_expense(client).json()["id"]
+    response = client.patch(
+        f"/api/expenses/{expense_id}", json={"amount_cop": 10**30}
+    )
+    assert response.status_code == 400
+    assert client.get(f"/api/expenses/{expense_id}").json()["amount_cop"] == 14000
+
+
+def test_d7_an_archived_category_is_refused_for_a_new_expense(client):
+    """QA D7: 3.4 says a removed category is gone from future selection. The UI
+    hides the chip; the API now enforces it too."""
+    created = client.post("/api/categories", json={"name": "Temporal"}).json()
+    client.delete(f"/api/categories/{created['id']}")
+
+    response = make_expense(client, category_id=created["id"])
+    assert response.status_code == 400
+    assert {"field": "category_id", "reason": "unknown_id"} in response.json()["error"]["fields"]
+
+
+def test_d7_an_archived_payment_method_is_refused_for_a_new_expense(client):
+    created = client.post("/api/payment-methods", json={"name": "Temporal"}).json()
+    client.delete(f"/api/payment-methods/{created['id']}")
+    response = make_expense(client, payment_method_id=created["id"])
+    assert response.status_code == 400
+    assert (
+        {"field": "payment_method_id", "reason": "unknown_id"}
+        in response.json()["error"]["fields"]
+    )
+
+
+def test_d7_an_old_expense_under_an_archived_category_stays_editable(client):
+    """3.4 keeps historical expenses attributed to the archived name, so editing
+    one must not become impossible — only *moving* an expense onto an archived
+    category is refused."""
+    created = client.post("/api/categories", json={"name": "Temporal"}).json()
+    expense_id = make_expense(client, category_id=created["id"]).json()["id"]
+    client.delete(f"/api/categories/{created['id']}", params={"confirm": "true"})
+
+    # Editing another field, with the archived category left in place.
+    assert client.patch(f"/api/expenses/{expense_id}", json={"amount_cop": 9000}).status_code == 200
+    # Re-sending the same (archived) category is still accepted…
+    assert (
+        client.patch(
+            f"/api/expenses/{expense_id}", json={"category_id": created["id"]}
+        ).status_code
+        == 200
+    )
+    # …and moving it to an active one works.
+    assert client.patch(f"/api/expenses/{expense_id}", json={"category_id": 1}).status_code == 200
+    # But moving a different expense *onto* the archived one is refused.
+    other = make_expense(client).json()["id"]
+    assert (
+        client.patch(
+            f"/api/expenses/{other}", json={"category_id": created["id"]}
+        ).status_code
+        == 400
+    )
+
+
 def test_2_3_category_and_method_are_named_when_missing(client):
     error = client.post("/api/expenses", json={"amount_cop": 1000}).json()["error"]
     reasons = {(f["field"], f["reason"]) for f in error["fields"]}

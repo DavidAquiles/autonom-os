@@ -249,12 +249,89 @@ def test_a_failed_summary_is_reported_honestly(client, db):
     assert body["error_code"] == "llm_timeout"
 
 
-def test_a_readable_summary_is_not_hidden_by_a_newer_generating_one(client, db):
+def test_d3_an_empty_month_does_not_hide_the_last_real_summary(client, db):
+    """QA D3, reproduced exactly: June has expenses, July has none, now is
+    August. The scheduler writes a `ready` June row *and* an `empty` July row.
+
+    11.15 asks for the most recent **completed summary** to be readable. An
+    `empty` row is not a summary — it records that a month had nothing in it —
+    so it must not outrank one, or a single unused month hides the last real
+    summary forever, with no endpoint anywhere to reach it.
+    """
+    from autonomos.repo import summaries as summaries_repo
+
+    summaries_repo.start(db, "2026-06")
+    summaries_repo.finish_ready(
+        db, "2026-06", "En junio gastaste 346.000 pesos.", {"total_cop": 346000}, "modelo"
+    )
+    summaries_repo.start(db, "2026-07")
+    summaries_repo.finish_empty(db, "2026-07")
+
+    body = client.get("/api/insights/summaries/latest").json()
+    assert body["status"] == "ready"
+    assert body["period_key"] == "2026-06"
+    assert body["text"] == "En junio gastaste 346.000 pesos."
+    # …and July still says what it is, alongside rather than instead (11.16).
+    assert body["current"] == {
+        "status": "empty",
+        "period_key": "2026-07",
+        "period_label": "julio de 2026",
+    }
+
+
+def test_d3_a_readable_summary_is_not_hidden_by_a_newer_generating_one(client, db):
+    """The same rule covers Reviewer F4: a month being produced now is reported
+    in `current` while last month's summary stays readable, so the `generating`
+    surface is reachable again without costing 11.15."""
     from autonomos.repo import summaries as summaries_repo
 
     summaries_repo.start(db, "2026-06")
     summaries_repo.finish_ready(db, "2026-06", "Resumen de junio.", {}, "modelo")
     summaries_repo.start(db, "2026-07")
+
     body = client.get("/api/insights/summaries/latest").json()
     assert body["status"] == "ready"
     assert body["period_key"] == "2026-06"
+    assert body["current"]["status"] == "generating"
+    assert body["current"]["period_key"] == "2026-07"
+    assert body["current"]["started_at"]
+
+
+def test_d3_a_failed_month_rides_alongside_a_readable_summary(client, db):
+    from autonomos.repo import summaries as summaries_repo
+
+    summaries_repo.start(db, "2026-06")
+    summaries_repo.finish_ready(db, "2026-06", "Resumen de junio.", {}, "modelo")
+    summaries_repo.start(db, "2026-07")
+    summaries_repo.finish_failed(db, "2026-07", "llm_timeout")
+
+    body = client.get("/api/insights/summaries/latest").json()
+    assert body["status"] == "ready"
+    assert body["current"] == {
+        "status": "failed",
+        "period_key": "2026-07",
+        "period_label": "julio de 2026",
+        "error_code": "llm_timeout",
+    }
+
+
+def test_current_is_null_when_the_newest_month_is_the_summarised_one(client, db):
+    from autonomos.repo import summaries as summaries_repo
+
+    summaries_repo.start(db, "2026-07")
+    summaries_repo.finish_ready(db, "2026-07", "Resumen de julio.", {}, "modelo")
+    body = client.get("/api/insights/summaries/latest").json()
+    assert body["status"] == "ready"
+    assert body["current"] is None
+
+
+def test_an_empty_month_alone_is_still_its_own_state(client, db):
+    """With no summary ever written, 11.16's explicit states are unchanged."""
+    from autonomos.repo import summaries as summaries_repo
+
+    summaries_repo.start(db, "2026-07")
+    summaries_repo.finish_empty(db, "2026-07")
+    body = client.get("/api/insights/summaries/latest").json()
+    assert body["status"] == "empty"
+    assert body["period_key"] == "2026-07"
+    assert body["current"] is None

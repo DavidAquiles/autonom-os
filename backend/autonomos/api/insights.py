@@ -88,43 +88,67 @@ def cancel_job(job_id: str) -> Response:
     return Response(status_code=204)
 
 
+def _marker(row) -> dict:
+    """The state of a period that has no written summary of its own."""
+    status = row["status"]
+    marker = {
+        "status": status,
+        "period_key": row["period_key"],
+        "period_label": month_label_es(row["period_key"]),
+    }
+    if status == "generating":
+        marker["started_at"] = row["last_attempt_at"] or row["created_at"]
+    if status == "failed":
+        marker["error_code"] = row["error_code"] or "internal"
+    return marker
+
+
 @router.get("/summaries/latest")
 def latest_summary() -> dict:
     """Reads a stored row; never triggers generation (11.15). Always instant.
 
-    A finished row (`ready`/`empty`) is preferred over a newer in-flight one, so
-    a readable summary is never hidden behind a month currently being produced.
+    **The written summary and the current period's state are two answers, not
+    one.** Choosing between them is what broke 11.15: a single month with
+    nothing recorded produced an `empty` row that outranked the last real
+    summary, and since no endpoint lists summaries, that summary became
+    unreachable anywhere in the app (QA D3). So the most recent `ready` row is
+    the response, and any *later* period that has no summary of its own —
+    `empty`, `generating` or `failed` — rides alongside it in `current`.
+
+    That also restores the `generating` surface, which the previous
+    ready-or-nothing rule made near-unreachable once any month had succeeded
+    (Reviewer F4): a month being produced now is reported in `current` while
+    last month's summary stays readable, which is what Design Constraint 27
+    asked for without costing 11.15.
     """
     conn = get_db()
-    row = summaries_repo.latest_ready(conn) or summaries_repo.latest(conn)
-    if row is None:
-        return {"status": "none"}  # 11.16
+    ready = summaries_repo.latest_ready(conn)
+    newest = summaries_repo.latest(conn)
+
+    if ready is None:
+        # No month has ever produced a summary. The newest row, if any, still
+        # explains itself (11.16); otherwise there is genuinely nothing.
+        if newest is None:
+            return {"status": "none"}
+        body = _marker(newest)
+        body["current"] = None
+        return body
+
+    row = ready
+    current = None
+    if newest is not None and newest["period_key"] != ready["period_key"]:
+        current = _marker(newest)
 
     period_key = row["period_key"]
-    label = month_label_es(period_key)
-    status = row["status"]
-    if status == "ready":
-        return {
-            "status": "ready",
-            "period_kind": row["period_kind"],
-            "period_key": period_key,
-            "period_label": label,
-            "text": row["text"],
-            "generated_at": row["generated_at"],
-            "model": row["model"],
-            "facts": json.loads(row["facts_json"]) if row["facts_json"] else None,
-        }
-    if status == "generating":
-        return {
-            "status": "generating",
-            "period_key": period_key,
-            "period_label": label,
-            "started_at": row["last_attempt_at"] or row["created_at"],
-        }
-    if status == "empty":
-        return {"status": "empty", "period_key": period_key, "period_label": label}
     return {
-        "status": "failed",
+        "status": "ready",
+        "period_kind": row["period_kind"],
         "period_key": period_key,
-        "error_code": row["error_code"] or "internal",
+        "period_label": month_label_es(period_key),
+        "text": row["text"],
+        "generated_at": row["generated_at"],
+        "model": row["model"],
+        "facts": json.loads(row["facts_json"]) if row["facts_json"] else None,
+        # `null` when the newest period *is* this summary's own.
+        "current": current,
     }

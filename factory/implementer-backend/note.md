@@ -15,7 +15,7 @@ tick and the nightly `VACUUM INTO` snapshot. `ops/` carries four systemd **user*
 units, a setup script that runs `loginctl enable-linger`, an `mkcert` helper for
 the LAN fallback origin, and a runbook.
 
-247 backend tests pass. Beyond the suite, the stack was exercised live against the
+261 backend tests pass. Beyond the suite, the stack was exercised live against the
 **real** Ollama and whisper.cpp sidecars over HTTP: an expense saved, a 4 s clip
 transcribed in 5.9 s, a Spanish answer returned in 16.4 s with correct facts, and
 a running question preempted by an arriving transcription. Two live findings
@@ -39,7 +39,7 @@ command I ran on this host today.
 cd backend
 ~/.local/bin/uv venv --python ~/.local/bin/python3.12 .venv
 ~/.local/bin/uv pip install -e ".[dev]"
-.venv/bin/python -m pytest -q                      # 247 tests
+.venv/bin/python -m pytest -q                      # 261 tests
 .venv/bin/python -m autonomos.serve                # both origins, one process
 ```
 
@@ -194,6 +194,48 @@ says as much where it explains that a correct figure for the wrong period is
 something NumericGuard cannot see; the router's `period_unrecognised` is what
 covers that. Recorded in
 `test_the_guard_is_membership_not_meaning_and_this_predates_f3`.
+
+**QA round 1 — D3, D8 and D5/D7 fixed; D2 improved but not closed.**
+
+*D3 (11.15) — an empty month hid the last real summary.* `latest_ready()`
+counted `empty` as a finished summary, so a July with nothing recorded outranked
+a complete June and, since no endpoint lists summaries, made it unreachable
+anywhere in the app. An `empty` row is not a summary; it records that a month had
+nothing in it. `/latest` now answers with the most recent **`ready`** row and
+carries any later period that has no summary of its own — `empty`, `generating`
+or `failed` — alongside it in a new `current` object. The two were competing for
+one field; now they are two answers. The change is additive, so the frontend
+closes D3 without touching anything.
+
+**This closes Reviewer F4 as well** — the coordinator asked me to say so if it
+did. F4 was that `generating` became unreachable once any month had succeeded,
+which was the same "choose one row" bug seen from the other side. A month being
+produced now appears in `current` while last month's summary stays readable,
+which is what Design Constraint 27 wanted without costing 11.15.
+
+*D8 (11.2) — a date component laundered itself into a count.* A summary said the
+user spent a total "durante los días con algún gasto **(20)**" where July had 3;
+`20` passed only because 20 July was a top-expense date. This was caused by the
+fix for Reviewer F3, which widened the allowed set to everything in DATOS —
+so the fix had to satisfy both, and narrowing back was not available. **The fact
+set is now typed**: quantities (money, counts, percentages) and dates are
+separate sets, dates are lifted out of DATOS before quantities are scanned, and
+a date in an answer is validated *as a whole date* — "el 14 de julio" must match
+a date the facts carry. A date stays sayable; it cannot become a quantity.
+Neither defect can return, and it closed a case I had previously documented as a
+limit: the period month `2026-07` no longer authorises a bare "7 entradas".
+
+*D5, D7 — two boundaries closed.* An amount above SQLite's signed-64-bit range
+reached the driver and returned a 500 carrying a Python exception; it is now a
+`validation` rejection naming the field, using the store's real limit rather than
+an invented product cap. And `POST /api/expenses` now refuses an **archived**
+category or method, with one exemption that matters: a PATCH may keep an
+expense's existing (since-archived) value, so an old expense filed under a
+removed category stays editable per 3.4 — only *moving* an expense onto an
+archived one is refused.
+
+*D2 (11.1) — improved measurably, not closed. This one needs the human.* See the
+section below.
 
 **F4 and F7 are not mine and were not touched** — both are recorded as deferred:
 F4 (the `generating` surface) is a contract question for the Architect, F7 (retry
@@ -492,6 +534,73 @@ remote service; no key, no account. Verified by inspection.
 | same, before the cancel fix | 17.6 s |
 | finance question, real Ollama, HTTP + polling | 16.4 s |
 | three questions in `live_check llm` | 4.6 s, 17.0 s, 39.6 s |
-| backend test suite | 247 tests, ~12 s |
+| backend test suite | 261 tests, ~13 s |
 
 `elapsed_ms` is logged for every transcription and every job, as R9 asks.
+
+
+## D2 (11.1) — what I changed, what it bought, and the ceiling
+
+11.1 is the surface KD-10 declares **prompt-enforced with no guard**, and the
+design rejected a second classifier pass for a real reason: it would cost another
+inference inside the same 120 s budget. So this is prompt work, measured by
+repetition against the real model, never a single run.
+
+**Three changes**, all inside my latitude (prompt wording and the router's word
+lists are explicitly deferred to the implementer):
+
+1. `insights/router.py` — QA's failing inventions were finance-flavoured
+   ("ingresos vs desembolsos semanales") on a *journal* question. The cause was
+   structural, not stylistic: `preocupado` was missing from the journal lexicon,
+   so the question routed to `both` and the model had spending data in front of
+   it to weave from. Journal morphology is now covered, and such a question
+   carries no expense facts at all.
+2. `insights/prompts.py` — both system prompts rewritten from "describe" to
+   "describe and nothing else": second person (QA saw "Tuve conversaciones"
+   about the *user's* life), an explicit list of what this app does not record
+   (income, balances, savings, debts, budgets, investments) with "todo tu
+   dinero" named outright, a ban on inferring causes or patterns, a ban on a
+   closing reflection, no parenthetical figures, and 3 sentences instead of 5.
+3. `insights/runner.py` — `temperature=0.0` for answers and summaries. Nothing
+   here wants sampling variety; restating stored facts is the whole job.
+
+**Measured on this host, `tools/grounding_check.py`, real model.** QA's fixture
+shape, QA's question, 7 runs per arm:
+
+| Arm | Off-record finance themes | Figures |
+| --- | --- | --- |
+| legacy prompt, QA's question | 0/7 | clean |
+| hardened prompt, QA's question | 0/7 | clean |
+| legacy prompt, synthesis question | — | **7/7 `unverifiable_figures`** |
+| hardened prompt, synthesis question | 0/7 | **0/7 failures, all literal** |
+
+The legacy prompt on a synthesis question ("¿qué patrones ves en mis gastos y en
+lo que escribí?") computed "gastaste más del **50%** total" — a figure in no
+fact — and the guard rejected it every time, so the user got "no puedo
+responder" seven times out of seven. The hardened prompt produced literal
+figures and passed on all seven.
+
+**The ceiling, stated plainly.** On that same synthesis question the hardened
+prompt still embellishes, and I could not instruct it away:
+
+- *"comer en un restaurante"* — the entry says "almuerzo con Andrés"; no
+  restaurant is recorded.
+- *"tu bienestar emocional"*, *"tu relación con Andrés"* — interpretive labels
+  the user never wrote.
+- *"lo que sugiere que tuviste compras significativas"* — an inference, which
+  rule 7 forbids in as many words.
+- *"Tuve algunos gastos grandes"* — first person, which rule 1 forbids.
+
+So: **a 3B model at Q4_K_M does not reliably stop embellishing when told to.**
+The rate on QA's exact question is 0/7 and the figure path is materially better,
+but a question shaped like "find the patterns" still produces unsupported
+clauses. I do not think more prompt text fixes this — the prompt is already long
+enough that a 3B model starts dropping instructions from it, which is why I
+stopped adding.
+
+That leaves the decision the design anticipated, and it is the human's, not
+mine: **R3's ladder** (`LLM_MODEL=qwen3:4b-instruct`, a config change, ~+0.6 GB)
+against **PM narrowing 11.1**. Note that only *one* of the two documented
+upgrades fits in the measured 5.3 GiB, so choosing the LLM rung spends the
+headroom that whisper `medium` would otherwise use. I have not taken either
+decision and I have not narrowed the criterion.

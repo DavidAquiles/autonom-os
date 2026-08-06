@@ -47,10 +47,13 @@ FINANCE_WORDS = {
     "costos", "gastando", "invertido", "salida de dinero", "metodo de pago",
 }
 JOURNAL_WORDS = {
-    "diario", "escribi", "escrito", "entrada", "entradas", "pensaba", "pense",
-    "preocupaba", "preocupa", "sentia", "senti", "animo", "humor", "notas",
-    "nota", "reflexion", "reflexiones", "emociones", "triste", "feliz",
-    "ansiedad", "sueno", "suenos", "escribiendo", "conte", "pensamientos",
+    "diario", "escribi", "escrito", "escribia", "entrada", "entradas",
+    "pensaba", "pense", "pensado", "pensando", "preocupaba", "preocupa",
+    "preocupado", "preocupada", "preocupacion", "preocupaciones",
+    "sentia", "senti", "sentido", "sintiendo", "animo", "humor", "notas",
+    "nota", "reflexion", "reflexiones", "reflexionado", "emociones", "triste",
+    "feliz", "ansiedad", "sueno", "suenos", "escribiendo", "conte",
+    "pensamientos", "sentimientos",
 }
 
 

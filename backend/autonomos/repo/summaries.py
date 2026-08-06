@@ -31,9 +31,14 @@ def latest(conn: sqlite3.Connection) -> sqlite3.Row | None:
 
 
 def latest_ready(conn: sqlite3.Connection) -> sqlite3.Row | None:
+    """The most recent month that actually has a written summary.
+
+    `empty` is deliberately **not** included. An `empty` row records that a
+    month had nothing in it; it is not a summary, and treating it as one let a
+    single unused month permanently hide the last real summary (QA D3, 11.15).
+    """
     return conn.execute(
-        "SELECT * FROM summaries WHERE status IN ('ready', 'empty') "
-        "ORDER BY period_key DESC LIMIT 1"
+        "SELECT * FROM summaries WHERE status = 'ready' ORDER BY period_key DESC LIMIT 1"
     ).fetchone()
 
 

@@ -164,6 +164,13 @@ def active_ids(conn: sqlite3.Connection, table: Table) -> set[int]:
     }
 
 
+def is_archived(conn: sqlite3.Connection, table: Table, item_id: int) -> bool:
+    row = conn.execute(
+        f"SELECT archived_at FROM {table.name} WHERE id = ?", (item_id,)
+    ).fetchone()
+    return bool(row and row["archived_at"] is not None)
+
+
 def exists(conn: sqlite3.Connection, table: Table, item_id: int) -> bool:
     return (
         conn.execute(f"SELECT 1 FROM {table.name} WHERE id = ?", (item_id,)).fetchone()
