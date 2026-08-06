@@ -22,28 +22,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from pathlib import Path
 
 import uvicorn
 
-from .config import get_settings
+from .config import get_settings, lan_fallback_status
 from .main import configure_logging, create_app
 
 log = logging.getLogger("autonomos.serve")
-
-
-def _lan_enabled() -> tuple[bool, str]:
-    settings = get_settings()
-    if not settings.lan_bind_addr:
-        return False, "LAN_BIND_ADDR is unset — LAN fallback origin disabled"
-    if settings.lan_bind_addr == "0.0.0.0":
-        # Binding every interface would widen an unauthenticated surface for no
-        # gain (KD-2), so this is refused rather than obeyed.
-        return False, "LAN_BIND_ADDR=0.0.0.0 is refused; name one interface"
-    cert, key = Path(settings.tls_certfile), Path(settings.tls_keyfile)
-    if not settings.tls_certfile or not cert.is_file() or not key.is_file():
-        return False, "TLS_CERTFILE/TLS_KEYFILE missing — run ops/mkcert-lan.sh"
-    return True, ""
 
 
 async def _run() -> None:
@@ -63,7 +48,9 @@ async def _run() -> None:
             )
         )
     ]
-    enabled, reason = _lan_enabled()
+    # One predicate, shared with GET /api/health: the origin advertised to
+    # the client and the listener that must answer it cannot disagree.
+    enabled, reason = lan_fallback_status(settings)
     if enabled:
         servers.append(
             uvicorn.Server(

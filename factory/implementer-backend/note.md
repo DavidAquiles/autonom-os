@@ -15,7 +15,7 @@ tick and the nightly `VACUUM INTO` snapshot. `ops/` carries four systemd **user*
 units, a setup script that runs `loginctl enable-linger`, an `mkcert` helper for
 the LAN fallback origin, and a runbook.
 
-241 backend tests pass. Beyond the suite, the stack was exercised live against the
+247 backend tests pass. Beyond the suite, the stack was exercised live against the
 **real** Ollama and whisper.cpp sidecars over HTTP: an expense saved, a 4 s clip
 transcribed in 5.9 s, a Spanish answer returned in 16.4 s with correct facts, and
 a running question preempted by an arriving transcription. Two live findings
@@ -39,7 +39,7 @@ command I ran on this host today.
 cd backend
 ~/.local/bin/uv venv --python ~/.local/bin/python3.12 .venv
 ~/.local/bin/uv pip install -e ".[dev]"
-.venv/bin/python -m pytest -q                      # 241 tests
+.venv/bin/python -m pytest -q                      # 247 tests
 .venv/bin/python -m autonomos.serve                # both origins, one process
 ```
 
@@ -195,9 +195,35 @@ something NumericGuard cannot see; the router's `period_unrecognised` is what
 covers that. Recorded in
 `test_the_guard_is_membership_not_meaning_and_this_predates_f3`.
 
-**F2, F4 and F7 are not mine and were not touched.** F2 is the frontend's and its
-fix may need a contract addition; F4 (the `generating` surface) and F7 (retry
-backoff) are recorded as deferred.
+**F4 and F7 are not mine and were not touched** — both are recorded as deferred:
+F4 (the `generating` surface) is a contract question for the Architect, F7 (retry
+backoff) is a preference the design leaves to me.
+
+**F2's server half — `GET /api/health` now advertises both origins.** F2 itself is
+the frontend's, but the Architect's rev5 ruling landed while I was committing the
+F1/F3 fixes and put a new field on my endpoint:
+
+    "origins": { "primary": string|null, "lan": string|null }
+
+Implemented as specified: absolute origins (scheme + host + port, no trailing
+path), read from `PUBLIC_URL` and `LAN_BIND_ADDR` + the TLS port, **never derived
+from the request** — a `Host` header would echo back the origin the client is
+already on, which is the one of no use during an outage. A test sends `Host:` and
+`X-Forwarded-Host:` and asserts the answer does not move.
+
+`lan` is null **whenever the fallback listener is disabled**, and to make that
+true rather than merely intended, the listener's own predicate is now shared:
+`config.lan_fallback_status()` is what both `serve.py` and `/api/health` call, so
+the advertised origin and the socket that must answer it cannot drift. Verified on
+a real server with both listeners up — `:8001` and `:8443` return an identical
+`origins` block. `PUBLIC_URL` is documented in `ops/autonomos.env.example` and in
+the runbook, next to the `tailscale serve` step that produces the value.
+
+I did this without being asked. The coordinator's instruction was not to pre-empt
+the Architect's ruling; the ruling had landed, the field is unambiguous, it is my
+endpoint, and the frontend is blocked without it — so the cost of waiting was a
+round trip for them and the risk of acting was a purely additive field. Say the
+word and I will revert it.
 
 **1. Two origins, one process — a tension between KD-2 and KD-3, resolved without
 changing either.** KD-2 requires a uvicorn TLS listener on `${LAN_BIND_ADDR}:8443`
@@ -466,6 +492,6 @@ remote service; no key, no account. Verified by inspection.
 | same, before the cancel fix | 17.6 s |
 | finance question, real Ollama, HTTP + polling | 16.4 s |
 | three questions in `live_check llm` | 4.6 s, 17.0 s, 39.6 s |
-| backend test suite | 241 tests, ~11 s |
+| backend test suite | 247 tests, ~12 s |
 
 `elapsed_ms` is logged for every transcription and every job, as R9 asks.

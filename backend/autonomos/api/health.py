@@ -8,7 +8,7 @@ import time
 from fastapi import APIRouter
 
 from ..clock import now_iso
-from ..config import get_settings
+from ..config import as_origin, get_settings, lan_origin
 from ..providers import get_llm, get_stt
 from .models import Health, Status
 
@@ -20,12 +20,27 @@ _HEALTH_PROBE_TIMEOUT_S = 2.5
 
 @router.get("/health", response_model=Health)
 def health() -> dict:
+    """Also advertises both origins, so the client can learn the *other* one
+    while the server is still reachable (KD-2 mechanism 1, 13.8).
+
+    Both come from server configuration and **neither is derived from the
+    request**: a client that can reach one origin cannot supply the other, and
+    a `Host` header would echo back the origin the client is already on — which
+    is precisely the one that is of no use during an outage.
+    """
     settings = get_settings()
     return {
         "status": "ok",
         "server_time": now_iso(),
         "tz": settings.app_tz,
         "version": settings.version,
+        "origins": {
+            "primary": as_origin(settings.public_url),
+            # null whenever the fallback listener is not actually running:
+            # advertising an origin nothing listens on is a lie the client
+            # would act on during an outage.
+            "lan": lan_origin(settings),
+        },
     }
 
 

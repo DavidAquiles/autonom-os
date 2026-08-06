@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -82,6 +83,11 @@ class Settings:
             _env_first(("AUTONOMOS_API_PORT", "API_PORT"), "8001")
         )
     )
+    # The tailnet origin, echoed by GET /api/health so the client can learn the
+    # *other* origin while the server is still reachable (KD-2 mechanism 1).
+    # Server configuration: it is never inferred from a request Host header,
+    # because a client that can reach one origin cannot supply the other.
+    public_url: str = field(default_factory=lambda: _env("PUBLIC_URL", ""))
     # The LAN fallback binds ONE named interface and is never 0.0.0.0. Unset it
     # on any network David does not control — it is unauthenticated by A6.
     lan_bind_addr: str = field(default_factory=lambda: _env("LAN_BIND_ADDR", ""))
@@ -168,6 +174,50 @@ class Settings:
         default_factory=lambda: _env_int("JOURNAL_CONTEXT_TOKENS", 1200)
     )
     status_cache_s: float = field(default_factory=lambda: _env_float("STATUS_CACHE_S", 30.0))
+
+
+def as_origin(value: str) -> str | None:
+    """`https://host:port/path/` -> `https://host:port`; anything unusable -> None.
+
+    The contract calls for an **absolute origin**: scheme + host + port, no
+    trailing path.
+    """
+    candidate = (value or "").strip()
+    if not candidate:
+        return None
+    parts = urlsplit(candidate if "//" in candidate else f"//{candidate}", scheme="https")
+    if not parts.netloc or parts.scheme not in ("http", "https"):
+        return None
+    return f"{parts.scheme}://{parts.netloc}"
+
+
+def lan_fallback_status(settings: "Settings | None" = None) -> tuple[bool, str]:
+    """Whether the LAN fallback listener runs, and why not when it does not.
+
+    One predicate, used by both the listener (`serve.py`) and `GET /api/health`:
+    the contract says `lan` is null **whenever the fallback listener is
+    disabled**, so advertising an origin nothing is listening on would be a lie
+    the client acts on during an outage.
+    """
+    settings = settings or get_settings()
+    if not settings.lan_bind_addr:
+        return False, "LAN_BIND_ADDR is unset — LAN fallback origin disabled"
+    if settings.lan_bind_addr == "0.0.0.0":
+        # Binding every interface would widen an unauthenticated surface for no
+        # gain (KD-2), so this is refused rather than obeyed.
+        return False, "LAN_BIND_ADDR=0.0.0.0 is refused; name one interface"
+    cert, key = Path(settings.tls_certfile), Path(settings.tls_keyfile)
+    if not settings.tls_certfile or not cert.is_file() or not key.is_file():
+        return False, "TLS_CERTFILE/TLS_KEYFILE missing — run ops/mkcert-lan.sh"
+    return True, ""
+
+
+def lan_origin(settings: "Settings | None" = None) -> str | None:
+    settings = settings or get_settings()
+    enabled, _reason = lan_fallback_status(settings)
+    if not enabled:
+        return None
+    return as_origin(f"https://{settings.lan_bind_addr}:{settings.lan_port}")
 
 
 _settings: Settings | None = None

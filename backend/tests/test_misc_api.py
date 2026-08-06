@@ -17,6 +17,126 @@ def test_health_reports_the_server_clock_and_timezone(client):
     assert body["version"]
 
 
+def _certs(tmp_path):
+    cert, key = tmp_path / "c.pem", tmp_path / "k.pem"
+    cert.write_text("cert")
+    key.write_text("key")
+    return str(cert), str(key)
+
+
+def test_13_8_health_advertises_both_origins(client, monkeypatch, tmp_path):
+    """KD-2 mechanism 1: the client learns the *other* origin while the server
+    is reachable, because at the moment it needs it nothing will answer."""
+    from autonomos.config import reset_settings
+
+    cert, key = _certs(tmp_path)
+    monkeypatch.setenv("PUBLIC_URL", "https://autonomos.tail1a2b3c.ts.net")
+    monkeypatch.setenv("LAN_BIND_ADDR", "192.168.1.42")
+    monkeypatch.setenv("LAN_PORT", "8443")
+    monkeypatch.setenv("TLS_CERTFILE", cert)
+    monkeypatch.setenv("TLS_KEYFILE", key)
+    reset_settings()
+
+    origins = client.get("/api/health").json()["origins"]
+    assert origins == {
+        "primary": "https://autonomos.tail1a2b3c.ts.net",
+        "lan": "https://192.168.1.42:8443",
+    }
+
+
+def test_origins_are_absolute_with_no_trailing_path(client, monkeypatch):
+    from autonomos.config import reset_settings
+
+    monkeypatch.setenv("PUBLIC_URL", "https://autonomos.tail1a2b3c.ts.net/finanzas/")
+    reset_settings()
+    assert (
+        client.get("/api/health").json()["origins"]["primary"]
+        == "https://autonomos.tail1a2b3c.ts.net"
+    )
+
+
+def test_unconfigured_origins_are_null_not_missing_and_not_an_error(client):
+    body = client.get("/api/health")
+    assert body.status_code == 200
+    assert body.json()["origins"] == {"primary": None, "lan": None}
+
+
+def test_lan_origin_is_null_whenever_the_fallback_listener_is_disabled(
+    client, monkeypatch, tmp_path
+):
+    """Advertising an origin nothing is listening on is a lie the client would
+    act on during an outage, so the advertisement uses the listener's own
+    predicate."""
+    from autonomos.config import reset_settings
+
+    cert, key = _certs(tmp_path)
+    monkeypatch.setenv("PUBLIC_URL", "https://autonomos.tail1a2b3c.ts.net")
+
+    # 1. no bind address configured
+    monkeypatch.setenv("LAN_BIND_ADDR", "")
+    reset_settings()
+    assert client.get("/api/health").json()["origins"]["lan"] is None
+
+    # 2. 0.0.0.0 is refused by KD-2, so nothing listens
+    monkeypatch.setenv("LAN_BIND_ADDR", "0.0.0.0")
+    monkeypatch.setenv("TLS_CERTFILE", cert)
+    monkeypatch.setenv("TLS_KEYFILE", key)
+    reset_settings()
+    assert client.get("/api/health").json()["origins"]["lan"] is None
+
+    # 3. certificate missing, so the TLS listener cannot start
+    monkeypatch.setenv("LAN_BIND_ADDR", "192.168.1.42")
+    monkeypatch.setenv("TLS_CERTFILE", str(tmp_path / "absent.pem"))
+    reset_settings()
+    assert client.get("/api/health").json()["origins"]["lan"] is None
+
+    # …and the primary is unaffected throughout.
+    assert (
+        client.get("/api/health").json()["origins"]["primary"]
+        == "https://autonomos.tail1a2b3c.ts.net"
+    )
+
+
+def test_origins_are_never_derived_from_the_request(client, monkeypatch):
+    """A Host header would echo the origin the client is already on — precisely
+    the one that is useless during an outage."""
+    from autonomos.config import reset_settings
+
+    monkeypatch.setenv("PUBLIC_URL", "https://autonomos.tail1a2b3c.ts.net")
+    reset_settings()
+    body = client.get(
+        "/api/health",
+        headers={"Host": "192.168.1.99:8443", "X-Forwarded-Host": "evil.example.com"},
+    ).json()
+    assert body["origins"]["primary"] == "https://autonomos.tail1a2b3c.ts.net"
+    assert body["origins"]["lan"] is None
+
+
+def test_the_listener_and_the_advertisement_share_one_predicate(monkeypatch, tmp_path):
+    """`serve.py` and `/api/health` must never disagree about whether the LAN
+    fallback exists."""
+    from autonomos.config import (
+        get_settings,
+        lan_fallback_status,
+        lan_origin,
+        reset_settings,
+    )
+
+    cert, key = _certs(tmp_path)
+    monkeypatch.setenv("LAN_BIND_ADDR", "192.168.1.42")
+    monkeypatch.setenv("TLS_CERTFILE", cert)
+    monkeypatch.setenv("TLS_KEYFILE", key)
+    reset_settings()
+    assert lan_fallback_status(get_settings())[0] is True
+    assert lan_origin() == "https://192.168.1.42:8443"
+
+    monkeypatch.setenv("LAN_BIND_ADDR", "0.0.0.0")
+    reset_settings()
+    enabled, reason = lan_fallback_status(get_settings())
+    assert enabled is False and "0.0.0.0" in reason
+    assert lan_origin() is None
+
+
 def test_status_reports_both_sidecars(client):
     body = client.get("/api/status").json()
     assert body["transcription"] == "ok"

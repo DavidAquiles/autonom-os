@@ -41,11 +41,24 @@ class ErrorEnvelope(Strict):
 # --- health ---------------------------------------------------------------
 
 
+class Origins(Strict):
+    """Absolute origins (scheme + host + port, no trailing path).
+
+    `null` means "that origin is not configured" — and for `lan`, that the
+    fallback listener is disabled. A client must read that as "no alternative
+    exists", not as an error.
+    """
+
+    primary: str | None = None
+    lan: str | None = None
+
+
 class Health(Strict):
     status: str
     server_time: str
     tz: str
     version: str
+    origins: Origins
 
 
 class Status(Strict):

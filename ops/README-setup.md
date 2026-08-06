@@ -53,6 +53,12 @@ to see the port situation without changing anything.
    what makes voice capture possible at all: `getUserMedia` requires a secure
    context, which a plain `http://` LAN address is not.
 
+   Then put that same origin in `ops/autonomos.env` as `PUBLIC_URL` and restart
+   the API. `GET /api/health` echoes it, which is how the phone learns the
+   *other* origin **while the server is still reachable** — the "cannot reach
+   your server" screen needs it at a moment when no request can be made.
+   `tailscale status` prints the name.
+
 ## The LAN fallback origin (15.5)
 
 For "home internet is down but both devices are on the private network":
@@ -61,7 +67,13 @@ For "home internet is down but both devices are on the private network":
 ops/mkcert-lan.sh 192.168.1.50      # your PC's DHCP-reserved LAN address
 # set LAN_BIND_ADDR=192.168.1.50 in ops/autonomos.env
 systemctl --user restart autonomos-api
+curl -s http://127.0.0.1:8001/api/health   # `origins.lan` should now be non-null
 ```
+
+`origins.lan` stays `null` whenever the fallback listener is not actually
+running — no `LAN_BIND_ADDR`, `0.0.0.0` (refused), or a missing certificate.
+That is deliberate: advertising an origin nothing listens on would hand the
+phone a dead link at exactly the moment it needs a live one.
 
 Then install the mkcert root CA on the phone once, add the origin to the home
 screen with a distinct label, and grant microphone permission there — browser
