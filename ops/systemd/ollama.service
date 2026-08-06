@@ -1,0 +1,19 @@
+[Unit]
+Description=Ollama (local LLM runtime for Autonom-OS)
+After=network.target
+
+[Service]
+Type=simple
+# Loopback only: the model runtime never accepts an off-host connection (13.6).
+Environment=OLLAMA_HOST=127.0.0.1:11434
+# A model reload costs several seconds on this hardware and would land inside
+# the user's wait, so both models stay resident (KD-6).
+Environment=OLLAMA_KEEP_ALIVE=-1
+Environment=OLLAMA_MAX_LOADED_MODELS=1
+Environment=OLLAMA_NUM_PARALLEL=1
+ExecStart=%h/.local/bin/ollama serve
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

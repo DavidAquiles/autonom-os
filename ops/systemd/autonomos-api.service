@@ -1,0 +1,23 @@
+[Unit]
+Description=Autonom-OS API (FastAPI, one worker)
+# The sidecars are optional at boot: the API reports them as unavailable and
+# every non-AI part of the app keeps working (11.4).
+After=network-online.target autonomos-whisper.service ollama.service
+Wants=autonomos-whisper.service ollama.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Proyectos/Autonom-OS/backend
+EnvironmentFile=%h/Proyectos/Autonom-OS/ops/autonomos.env
+# One process, one worker, two listeners: 127.0.0.1:8000 behind `tailscale
+# serve`, and the LAN TLS fallback on ${LAN_BIND_ADDR}:8443 when configured.
+# Two processes would mean two InferenceArbiters, and two arbiters is the same
+# as none (KD-3, KD-2).
+ExecStart=%h/Proyectos/Autonom-OS/backend/.venv/bin/python -m autonomos.serve
+Restart=on-failure
+RestartSec=5
+# Loopback only. `tailscale serve` and the LAN TLS listener are the only paths
+# that accept an off-host connection (13.6).
+
+[Install]
+WantedBy=default.target

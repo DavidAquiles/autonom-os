@@ -1,0 +1,21 @@
+[Unit]
+Description=Tailscale (non-root userspace networking) for Autonom-OS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Userspace networking, not full tunnel routing: this app needs `tailscale
+# serve`, which keeps the whole stack inside $HOME with nothing owned by root
+# (design: Process topology).
+ExecStart=%h/.local/bin/tailscaled \
+    --tun=userspace-networking \
+    --socket=%h/.local/share/tailscale/tailscaled.sock \
+    --statedir=%h/.local/share/tailscale \
+    --socks5-server=localhost:1055 \
+    --outbound-http-proxy-listen=localhost:1055
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

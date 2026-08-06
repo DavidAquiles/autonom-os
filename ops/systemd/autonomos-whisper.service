@@ -1,0 +1,20 @@
+[Unit]
+Description=Autonom-OS transcription sidecar (whisper.cpp whisper-server)
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/Proyectos/Autonom-OS/ops/autonomos.env
+# `-l es` forces Spanish and is what satisfies 8.7. There is NO `--no-translate`
+# flag in this build (b0f6b6e): passing it prints usage and exits 1. Translation
+# is off by default.
+# 6 threads, not 8, so neither sidecar starves the desktop session (R4).
+ExecStart=%h/.local/whisper.cpp/build/bin/whisper-server \
+    -m %h/.local/whisper.cpp/models/ggml-small-q5_1.bin \
+    -l es -t 6 -bo 1 -bs 1 -nt \
+    --host 127.0.0.1 --port 8081
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
