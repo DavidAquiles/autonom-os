@@ -31,3 +31,18 @@ re-mounts when the health query settles into its error state. Two habits:
 `md5sum` the forced shot against its default — identical bytes mean the state
 never applied — and let the state settle (a wait) before forcing. `shots.mjs`
 now reports this as `ESTADO-PERDIDO`, but only for `forceText` shots.
+
+**`force:`-selector shots still have no liveness check (deferral F8), and a
+shot can prove nothing while the run reports 0 findings.** Seen for real: the
+`finanzas-hoy--fila-*` shots warned `no element for ul li a` because the seeded
+expenses were dated the previous day, so there were no rows to force — and the
+run still passed. Run `node tools/seed.mjs` before the matrix, read the `!`
+warning lines in the log, and prefer `forceText:` (it can find an element by
+`aria-label`, so it reaches inputs too) over `force:` for anything load-bearing.
+
+**"This environment cannot produce that state" needs one more attempt before it
+goes in a note.** The Phase 2 note declared the microphone-denial screen (8.5)
+uncapturable in headless Chromium; the Reviewer inherited the claim, and QA then
+captured it with CDP `Browser.setPermission {microphone: denied}` against a
+Chromium started *without* `--use-fake-ui-for-media-stream`. The flag was the
+obstacle, not the environment. Downstream reads such a sentence as settled.
