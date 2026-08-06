@@ -21,10 +21,10 @@ Both AI layers sit behind provider interfaces speaking the OpenAI-compatible wir
 replacing local inference is a base-URL change. One **InferenceArbiter** governs both sidecars:
 transcription and questions preempt the background monthly summary, so the runtimes never contend.
 
-**The biggest risk is mobile voice capture** — secure context, `MediaRecorder` differences between
-Android and iOS, and Tailscale with home internet down (15.5) all converge on one feature; test it
-on the real phone first. **R11 needs the human**: Tailscale is the one third party here, against a
-literal reading of 12.4 and 15.3.
+**The biggest risk is mobile voice capture** — secure context, on-device resampling, and Tailscale
+with home internet down (15.5) converge on one feature; test it on the real phone first. Approved
+at the gate on 2026-08-05: **Android only**, Tailscale kept with its third-party residual accepted
+(R11), CSV exports cut, nightly snapshots kept.
 
 ---
 
@@ -45,9 +45,10 @@ Rejected:
 
 - **Plain HTTP over LAN or a hand-rolled WireGuard tunnel.** Cheapest to set up, and it kills
   voice on the phone. Also no stable hostname, no cert, manual NAT traversal.
-- **Self-signed cert + CA installed on the phone.** Works, but is a fiddly one-time setup (iOS
-  requires a second "trust" toggle buried in Settings), and the cert expires on a schedule nobody
-  will remember. Retained as a *fallback origin only* — see KD-2.
+- **Self-signed cert + CA installed on the phone.** Works, but is a fiddly one-time setup — on
+  Android the CA goes in through Settings → Security → Encryption & credentials and leaves a
+  standing "network may be monitored" warning — and the cert expires on a schedule nobody will
+  remember. Retained as a *fallback origin only* — see KD-2.
 - **Port-forward + Let's Encrypt HTTP-01.** Directly violates 13.6.
 - **Cloudflare Tunnel / ngrok.** Free tiers exist, but David's requests would traverse a third
   party's edge — a 15.3 hazard — and a free tier that can start charging is a 12.4 hazard.
@@ -138,6 +139,12 @@ the Python module is present.
 day, so the durability is free, and the machine is a desktop that will be suspended and
 occasionally lose power. A nightly `VACUUM INTO data/snapshots/YYYY-MM-DD.sqlite` keeps the last 7
 days.
+
+**The nightly snapshots were approved by the human at the Approve Plan gate on 2026-08-05** and
+are in scope. They exceed what 14.1 strictly requires — survival across a restart — and were kept
+deliberately, on the reasoning that backups protect against data loss, which is the failure that
+actually hurts in a system holding years of irreplaceable personal writing. They are not unmandated
+work and are not to be cut later as scope creep.
 
 Rejected: **PostgreSQL** (a server process and ~200 MB of the 5.3 GiB for one user, no benefit);
 **JSON/NDJSON files** (no atomic multi-row updates, aggregation in Python); **DuckDB** (analytics
@@ -646,14 +653,15 @@ load — a 15.3 hazard and a hard failure when the internet is down (15.5).
 
 ### KD-15. Audio is converted to canonical WAV in the browser
 
-`MediaRecorder` produces `audio/webm;codecs=opus` on Android Chrome and `audio/mp4` on iOS Safari.
-Rather than make the backend deal with both, the frontend decodes the recording with
-`AudioContext.decodeAudioData` (which handles each browser's own output), resamples to 16 kHz mono
-via `OfflineAudioContext`, and uploads a 16-bit PCM WAV. Thirty seconds is ~960 KB — one to two
-seconds on LTE.
+**The target platform is Android only** (confirmed 2026-08-05, R1), so `MediaRecorder` produces
+`audio/webm;codecs=opus` and nothing else. The frontend still decodes the recording with
+`AudioContext.decodeAudioData`, resamples to 16 kHz mono via `OfflineAudioContext`, and uploads a
+16-bit PCM WAV. Thirty seconds is ~960 KB — one to two seconds on LTE.
 
-This removes an **ffmpeg** dependency that is not verified present on the host, and gives the
-backend exactly one input format to validate.
+The normalisation earns its place on one platform for two reasons that have nothing to do with
+container divergence: it removes an **ffmpeg** dependency that is not verified present on the host,
+and it gives the backend exactly one input format to validate. No iOS-specific branch is to be
+written; whatever robustness falls out of using the standard APIs is free and may stay.
 
 Rejected: **server-side transcode with ffmpeg** (an unverified system binary in the critical path
 of the app's headline feature); **streaming audio chunks during recording** (real complexity, and
@@ -714,9 +722,16 @@ insight text — see the end of KD-10.
 ```
 
 Both sidecars bind loopback only. Only `tailscale serve` and the LAN TLS port accept off-host
-connections (13.6, 15.3). Four systemd **user** units: `autonomos-api`, `autonomos-whisper`,
-`ollama`, plus the system `tailscaled`. Rejected `nohup` scripts: they do not survive a reboot,
-and 14.1 plus 13.7 require the thing to just be there after a restart.
+connections (13.6, 15.3).
+
+**Four systemd *user* units, none of them root:** `autonomos-api`, `autonomos-whisper`, `ollama`,
+and `tailscaled`. Tailscale 1.102.2 is installed as a **non-root userspace-networking daemon**
+rather than a system service, because this app needs `tailscale serve` and not full tunnel
+routing — which keeps the entire stack inside `$HOME` with nothing owned by root, consistent with
+the other three units. **Runbook consequence:** user units need `loginctl enable-linger` to start
+at boot without a login session, and that applies to all four including `tailscaled`. Rejected
+`nohup` scripts: they do not survive a reboot, and 14.1 plus 13.7 require the thing to just be
+there after a restart.
 
 ### Repository layout
 
@@ -810,9 +825,9 @@ Seven tables plus two alias tables. Full DDL is the backend implementer's; the s
 
 **`source` is stored but never rendered.** 9.5 and 10.4 require a voice-captured record to be
 indistinguishable from a typed one. `source` is accepted on `POST` and kept for diagnostics, and
-it is **omitted from every expense and journal response body and from both CSV exports** — it
-appears only in the full JSON export, which is an archival dump and not a rendered list. A field
-present in the contract is a field a component will eventually display; the fix is to not send it.
+it is **omitted from every expense and journal response body** — it appears only in the full JSON
+export, which is an archival dump and not a rendered list. A field present in the contract is a
+field a component will eventually display; the fix is to not send it.
 
 **Nothing is ever hard-deleted by the system.** Categories and payment methods archive (3.4);
 expenses and journal entries are deleted only by explicit user action (14.3). Because categories
@@ -1028,12 +1043,8 @@ whose values are a closed vocabulary the frontend maps directly.
 
 ### GET /api/export
 - response: `200 application/json`, `Content-Disposition: attachment` — a lossless dump: `{ "exported_at": iso8601, "schema_version": int, "categories": [...], "payment_methods": [...], "expenses": [...], "journal_entries": [...], "summaries": [...] }`
+- notes:    **the only export endpoint.** Category and payment method appear as ids *and* names, so the file is readable in any text editor with no reference to this app. CSV exports were cut at the Approve Plan gate on 2026-08-05 — the JSON dump already satisfies 14.2 and each CSV would have held only half the data.
 - requirements: 14.2
-
-### GET /api/export/expenses.csv · GET /api/export/journal.csv
-- response: `200 text/csv; charset=utf-8` with a UTF-8 BOM, `Content-Disposition: attachment`
-- notes:    expenses columns `id,spent_on,amount_cop,category,payment_method,description,created_at`; journal columns `id,written_at,text`. Category and payment method are written as **names**, so the file is readable with no reference to this app. `source` is omitted (9.5, 10.4). Each file holds half the data, so **neither satisfies 14.2 alone** — `GET /api/export` does.
-- requirements: none — spreadsheet convenience alongside the JSON dump that satisfies 14.2; flagged for the human at Approve Plan as keep-or-cut
 
 ### Client-side contract (no server endpoint)
 
@@ -1136,14 +1147,22 @@ by an environment test; they are enumerated so no criterion is left unowned.
 
 ## Risks / Tradeoffs
 
-**R1 — Mobile voice capture is the single most likely thing to be discovered broken at QA.**
-Three failure modes stack on one feature: secure context (mitigated by KD-1/KD-2),
-`MediaRecorder` output differing between Android Chrome and iOS Safari (mitigated by the
-`decodeAudioData` normalisation in KD-15, which handles each browser's own output), and
-`OfflineAudioContext` resampling behaviour on older devices. *Mitigation:* build and test voice on
-David's actual phone before anything downstream is trusted; treat it as the first integration
-checkpoint, not the last. **Which phone OS is unconfirmed** — the design works on both, but
-knowing it would let the frontend drop one branch and would sharpen the QA plan.
+**R1 — Mobile voice capture, REDUCED at the Approve Plan gate on 2026-08-05: the target is
+Android only.** This was the top unconfirmed risk and one of its three failure modes is now gone.
+What remains: secure context (mitigated by KD-1/KD-2) and `OfflineAudioContext` resampling
+behaviour on the actual device. What closed:
+
+- **Container-format divergence.** Android Chrome records `audio/webm;codecs=opus`, one format
+  rather than two. KD-15's `decodeAudioData` normalisation stays — it still removes the ffmpeg
+  dependency and still guarantees the 16 kHz mono WAV the sidecar wants — but it no longer has to
+  straddle two containers, and no iOS-specific handling is to be written.
+- **The iOS seven-day eviction of script-writable storage**, which would have dropped KD-13's
+  service-worker registration for an unengaged site, cannot apply on Android. Recorded so nobody
+  re-litigates it.
+
+*Mitigation, unchanged in priority:* build and test voice on David's Android phone before anything
+downstream is trusted — first integration checkpoint, not the last. **QA's matrix is one platform:
+Android Chrome.** Cross-platform robustness that costs nothing stays; iOS-specific work stops.
 
 **R2 — Tailscale cold start with home internet down (15.5).** Already-connected nodes keep working
 over direct LAN endpoints with cached peer state, but a cold start needs the coordination server.
@@ -1200,8 +1219,12 @@ thing keeping the lanes in sync. *Mitigation:* the backend must serve `/openapi.
 shapes must match this document; where they diverge, **this document wins** until Reviewer decides
 otherwise. The frontend may develop against a local mock that implements this contract.
 
-**R11 — Tailscale is a third party, and 12.4 and 15.3 are written as absolutes.**
-*This is the human's decision at Approve Plan, not the Architect's. Stated neutrally.*
+**R11 — Tailscale is a third party. RESIDUAL ACCEPTED by the human at the Approve Plan gate on
+2026-08-05.** He was shown this section in full — the free tier that could begin charging, the
+DERP relay under a literal 15.3 — alongside the costed alternatives below, and chose to keep
+Tailscale. This is a decision on the record, not an open risk. The alternatives stay written down
+because they are the ladder that gets used if Tailscale ever changes its terms; nothing about
+KD-1 or KD-2 changes.
 
 Away-from-home access (13.4) depends on Tailscale, whose personal tier is a free tier of a
 commercial service. 12.4 forbids any functionality depending on a remote service that could begin
@@ -1276,8 +1299,9 @@ Left to the Implementers, inside the structural bounds above.
   scheduler with a boot catch-up scan over completed months, plus preemptible summary jobs (KD-12).
 - *How 11.2 is enforced rather than hoped for.* Resolved by computing every figure in SQL and
   rejecting generated text containing an unverifiable number (KD-10).
-- *Audio format across Android and iOS.* Resolved by normalising to 16 kHz mono WAV in the browser,
-  which also removes an unverified `ffmpeg` dependency (KD-15).
+- *Audio format on the phone.* Resolved by normalising to 16 kHz mono WAV in the browser, which
+  removes an unverified `ffmpeg` dependency and gives the backend one format to validate (KD-15).
+  Since the platform was confirmed as Android-only, this is a single-container path.
 
 **Resolved in revision, after artifact analysis**
 - *11.17 versus whisper/LLM core contention.* The original semaphore serialized LLM against LLM
@@ -1342,9 +1366,6 @@ Left to the Implementers, inside the structural bounds above.
   stated and the pre-load nature of the reading noted so the table checks itself.
 
 **Open for verification, not blocking**
-- *Which phone OS David uses.* The design covers Android Chrome and iOS Safari; confirming it lets
-  the frontend drop one audio branch and lets QA test the real target. See R1. Folded into the
-  Approve Plan gate.
 - *Spanish accuracy of whisper `base`.* Its speed advantage is measured (1.8 s vs 6.4 s on the
   same clip) but its quality was benchmarked only on English audio forced through `-l es`, so
   nothing is known about its Spanish. The R9 ladder may not use that rung until someone transcribes
@@ -1352,7 +1373,14 @@ Left to the Implementers, inside the structural bounds above.
 - *p95 under contention.* The KD-5/KD-6 figures are single-run benchmarks on an otherwise idle
   machine. Log `elapsed_ms` from day one.
 
-**For the human at Approve Plan, not the Architect's to settle**
-- *Tailscale as a third-party dependency* against a literal reading of 12.4 and 15.3 — see R11.
-- *CSV exports and nightly snapshots* (KD-4, `/api/export/*.csv`) — both exceed what 14.1 and 14.2
-  require. Left in pending his keep-or-cut.
+**Settled by the human at the Approve Plan gate, 2026-08-05**
+- *Tailscale as a third-party dependency* against a literal reading of 12.4 and 15.3 — **kept**,
+  residual accepted knowingly. See R11.
+- *CSV exports* — **cut.** The JSON dump satisfies 14.2 on its own and each CSV held only half the
+  data. `GET /api/export/expenses.csv` and `/journal.csv` no longer exist and must not be built.
+- *Nightly `VACUUM INTO` snapshots* (KD-4) — **kept**, with explicit approval. In scope; not to be
+  cut later as unmandated work.
+- *The target phone is Android.* R1 reduced accordingly; no iOS-specific handling is to be written
+  and QA's matrix is Android Chrome only.
+- *The ~6.4 s voice floor* (analysis B8) — acknowledged. Voice is the hands-free path, not the
+  faster one for a simple expense; KD-5 already forbids any copy implying otherwise.

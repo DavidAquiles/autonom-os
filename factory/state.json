@@ -6,7 +6,8 @@
   "has_frontend": true,
   "stage": "analyze",
   "gates_passed": [
-    "kickoff"
+    "kickoff",
+    "approve_plan"
   ],
   "index": {
     "head": null,
@@ -165,7 +166,12 @@
       "stage": "analyze",
       "at": "2026-08-05T23:33:11+00:00",
       "note": "stage architect -> analyze"
+    },
+    {
+      "stage": "analyze",
+      "at": "2026-08-06T00:47:24+00:00",
+      "note": "gate passed: approve_plan"
     }
   ],
-  "updated_at": "2026-08-05T23:33:11+00:00"
+  "updated_at": "2026-08-06T00:47:24+00:00"
 }

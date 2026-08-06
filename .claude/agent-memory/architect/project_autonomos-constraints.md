@@ -26,6 +26,13 @@ under `/tmp` — any screenshot step must write inside the project or `$HOME`.
 - System Python is 3.14.4, but the project pins CPython 3.12.13 via `uv`, because
   ML and Rust-backed wheels lag new CPython ABIs.
 
+**Approve Plan gate passed 2026-08-05; implementers started.** Settled there:
+the target phone is **Android only** (no iOS handling anywhere), Tailscale is
+kept with its third-party residual accepted knowingly, CSV exports were cut, and
+nightly SQLite snapshots were explicitly approved rather than tolerated.
+Tailscale 1.102.2 runs as a non-root userspace daemon, so all four processes are
+systemd *user* units needing `loginctl enable-linger`.
+
 The orchestrating session committed to David that **the LLM layer and the
 transcription layer are swappable behind a real interface** — moving off local
 inference must be a configuration change, not a re-architecture.
