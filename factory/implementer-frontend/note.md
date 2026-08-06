@@ -9,25 +9,33 @@ imply, and voice capture end to end. Styling is `styles/tokens.css` plus CSS
 Modules per component, exactly as KD-14 requires; the whole palette is in one
 36-line token block carried unchanged from the approved mockups.
 
-Three things downstream needs to know before reading further:
+Four things downstream needs to know before reading further:
 
-1. **`partial_answer` is gone from the waiting screen, as instructed.** The
+1. **QA defect D1 is fixed (9.2).** An amount or category the voice pass could
+   not determine is now marked as needing input, with the same affordance
+   already approved for the payment method, driven by `resolved_by === 'none'`
+   and by nothing else. Fixing it exposed a hover defect inside that region,
+   also fixed. Six new tests, nine new captures. See *QA D1* below. Also in
+   this pass: **8.5 is a verified Pass** — this note's claim that the microphone
+   denial screen could not be captured here was wrong, and QA disproved it.
+
+2. **`partial_answer` is gone from the waiting screen, as instructed.** The
    preview block is deleted; the tally, the seconds count, the honest-range copy
    and the cancel affordance are unchanged. `elapsed_ms` is the only progress
    signal the UI reads, and no `Tally` prop exists that could accept a total.
-2. **Verification found three real defects and they are fixed.** Two CSS
+3. **Verification found three real defects and they are fixed.** Two CSS
    specificity bugs invisible in the mockups (the active nav item was not violet;
    the red error border lost to `:focus`) and one sub-44px touch target. All were
    caught by rendering and looking, not by reading.
-3. **The offline screen no longer hardcodes `https://192.168.1.24:8443`.** KD-2
+4. **The offline screen no longer hardcodes `https://192.168.1.24:8443`.** KD-2
    forbids an origin or port in the bundle, and the built assets contain neither.
    The alternative origin is **learned from `GET /api/health` while the server is
    still answering**, and stored by whatever origin is being served — see
    *Reviewer F2* below, which corrects what this note previously claimed.
 
-89 screenshots at 390/360/320/900 px, including forced `:hover`,
+98 screenshots at 390/360/320/900 px, including forced `:hover`,
 `:focus-visible`, `:active` and `disabled`, are in `frontend/tools/shots/`, with
-`audit.json` beside them. 35 frontend tests pass. The build carries no origin, no
+`audit.json` beside them. 41 frontend tests pass. The build carries no origin, no
 port and no external request.
 
 ## How to run it
@@ -36,7 +44,7 @@ port and no external request.
 cd frontend
 npm install
 npm run build          # tsc --noEmit && vite build → frontend/dist (+ dist/sw.js)
-npm test               # 29 tests
+npm test               # 41 tests
 npm run dev            # dev server on 5173, /api proxied to 127.0.0.1:8001
 ```
 
@@ -72,7 +80,7 @@ one form, and `diario-escribir` / `diario-voz-revision` are one editor.
 ## Visual Direction Conformance
 
 Each numbered Design Constraint, and how it was verified. "Audited" means
-`tools/shots.mjs` measured it in the browser across all 82 captures, including
+`tools/shots.mjs` measured it in the browser across all 98 captures, including
 under forced pseudo-states; the run exits non-zero on any finding and currently
 reports **0**.
 
@@ -148,13 +156,13 @@ exists to display before `done` (KD-11).
 
 ## Verification — what was run and what it found
 
-`node tools/shots.mjs` drives Chromium over CDP: 82 captures at 390/360/320/900 px,
+`node tools/shots.mjs` drives Chromium over CDP: 98 captures at 390/360/320/900 px,
 forcing `:hover`, `:focus-visible` and `:active` on the **real** elements through
 `CSS.forcePseudoState`. There is no `.is-hover` helper class in the app's CSS that
 could drift from the real rule — the mockups needed one, the built app does not.
 In each state it runs the Phase 1 audit: WCAG 2.1 contrast against the background
 actually painted, every interactive box against 44×44, horizontal overflow, and a
-`prefers-color-scheme` tripwire. **Current result: 82 captures, 0 findings.**
+`prefers-color-scheme` tripwire. **Current result: 98 captures, 0 findings.**
 
 It found three real defects on the way, all invisible in a static reading:
 
@@ -191,7 +199,7 @@ Beyond the matrix, run against the **real** backend on 8001:
 - **No origin, no port, no external request in the bundle**: grepping `dist/`
   yields one URL, React's own error link. No `8000`, `8001`, `8443` or `5173`.
 
-35 tests pass (`npm test`), including the four-interaction budget driven through
+41 tests pass (`npm test`), including the four-interaction budget driven through
 the real component tree, multi-field validation, Gym inertness, the cold-open
 offline screen, the closed error-code map, the stylesheet policy checks, and the
 six new tests that pin the alternative-origin mechanism in both directions
@@ -202,14 +210,14 @@ six new tests that pin the alternative-origin mechanism in both directions
 | Row | Captured | Where |
 |---|---|---|
 | default | yes, all screens | `tools/shots/` |
-| **hover** | yes | `*--hover`, `*--chip-hover`, `*--fila-hover`, `*--nav-hover`, `*--exportar-hover`, `*--listo-hover`, `*--boton-hover`, `*--entrada-hover`, `sin-servidor--enlace-hover` |
-| **focus-visible** | yes | `*--fila-foco`, `*--chip-foco`, `*--captura-foco`, `*--monto-foco`, `*--pregunta-foco`, `*--cancelar-foco`, `sin-servidor--enlace-foco` |
-| **active / pressed** | yes | `*--fila-pulsada`, `*--chip-pulsado`, `*--boton-pulsado`, `*--mic-pulsado`, `gasto-eliminar--boton-pulsado`, `sin-servidor--enlace-pulsado` |
+| **hover** | yes | `*--hover`, `*--chip-hover`, `*--fila-hover`, `*--nav-hover`, `*--exportar-hover`, `*--listo-hover`, `*--boton-hover`, `*--entrada-hover`, `sin-servidor--enlace-hover`, `gasto-voz-revision--sin-categoria-hover` |
+| **focus-visible** | yes | `*--fila-foco`, `*--chip-foco`, `*--captura-foco`, `*--monto-foco`, `*--pregunta-foco`, `*--cancelar-foco`, `sin-servidor--enlace-foco`, `gasto-voz-revision--sin-monto-foco`, `--sin-categoria-foco` |
+| **active / pressed** | yes | `*--fila-pulsada`, `*--chip-pulsado`, `*--boton-pulsado`, `*--mic-pulsado`, `gasto-eliminar--boton-pulsado`, `sin-servidor--enlace-pulsado`, `gasto-voz-revision--sin-categoria-activo` |
 | **disabled** | yes | `finanzas-mes--flecha-deshabilitada` (next month), `gasto-guardando` (submit), `analisis-ia-no-disponible` (ask field and mic), `analisis-esperando--*` (ask field and mic while a job runs) |
 | empty | yes, 6 | `finanzas-hoy-vacio`, `finanzas-mes-vacio`, `diario-vacio`, `diario-fecha-vacia`, `analisis-sin-resumen`, `analisis-periodo-vacio` |
 | loading | yes | `voz-transcribiendo`, `analisis-esperando--12s` / `--68s`, `analisis-generando`, `gasto-guardando` |
-| error | yes, 11 | `gasto-nuevo-error` (three at once), `gasto-guardar-fallo`, `diario-escribir-error`, `voz-fallo`, `analisis-error-*` (five terminal codes), `analisis-ocupado`, `analisis-resumen-fallo` |
-| narrow viewport | yes | 360 px and 320 px |
+| error | yes, 12 | `gasto-nuevo-error` (three at once), `gasto-guardar-fallo`, `diario-escribir-error`, `voz-fallo`, `analisis-error-*` (five terminal codes), `analisis-ocupado`, `analisis-resumen-fallo`, `gasto-voz-revision--sin-monto-error` (rejected inside the needs-input region) |
+| narrow viewport | yes | 360 px and 320 px, including `gasto-voz-revision--sin-nada--320` |
 | wide viewport | yes | 900 px |
 | scrolled | yes | `*--desplazado` |
 | dark mode | **not applicable** | Constraint 22 is light-only. There is no dark variant that could exist: zero `prefers-color-scheme` rules, asserted by a test and by a browser-side tripwire in every capture. |
@@ -224,18 +232,20 @@ everyday one is offered), `sin-servidor--ambos` (a third origin, both offered),
 
 **Two states could not be captured and are named rather than written off:**
 
-- **Microphone permission denied** (`voz-sin-permiso` in the mockups). Headless
-  Chromium with `--use-fake-ui-for-media-stream` always grants; without it,
-  `getUserMedia` in headless resolves rather than rejecting. The code path is
-  `VoiceContext.tsx:start` → `{ kind: 'denied' }` → `VoiceScreen.tsx:Denied` and
-  is reachable, but I could not make this browser produce the rejection. **QA on a
-  real device should check it** — deny the permission in Chrome's site settings
-  and start a voice capture.
-- **`MediaRecorder` unsupported** (`{ kind: 'unsupported' }`). Same reason
-  inverted: the API is present in every browser available here.
-
-Neither is "not screenshotable" — both are unreachable *in this environment*, and
-both have a named, testable path on a real Android device.
+- ~~**Microphone permission denied**~~ (`voz-sin-permiso` in the mockups).
+  **Corrected: QA captured it, and 8.5 is a verified Pass.** This note's original
+  claim — that headless Chromium could not be made to reject `getUserMedia` — was
+  wrong, and the Reviewer inherited it. The way through is CDP
+  `Browser.setPermission {microphone: denied}` against a browser started
+  *without* `--use-fake-ui-for-media-stream`; the flag was the obstacle, not the
+  environment. The path `VoiceContext.tsx:start` → `{ kind: 'denied' }` →
+  `VoiceScreen.tsx:Denied` renders correctly. The lesson generalises: "this
+  environment cannot produce that state" deserves one more attempt at the
+  mechanism before it is written into a note, because downstream reads it as
+  settled.
+- **`MediaRecorder` unsupported** (`{ kind: 'unsupported' }`). The API is present
+  in every browser available here. Still uncaptured — and after the above, stated
+  with less confidence than before.
 
 ## Reviewer F2 — the alternative origin, corrected
 
@@ -280,7 +290,81 @@ stamped element still exists at capture time and reports `ESTADO-PERDIDO` as a
 finding, and those shots wait for the state to settle first. Separately,
 `tools/sw-warm.mjs` closes Chromium through `Browser.close` instead of a signal,
 because `localStorage` is flushed on a clean shutdown and a SIGTERM dropped the
-armed origin the cold open needed. 89 captures, 0 findings.
+armed origin the cold open needed. 98 captures, 0 findings.
+
+## QA D1 — an undetermined amount or category is now marked (9.2)
+
+**What was wrong.** The "needs input" marking existed and was correct, but it was
+wired to one field. `methodMissing` was `Boolean(voice) && methodId === null` —
+so the payment method got the pill and the tinted region, while an undetermined
+**amount** rendered as a grey `$ 0` and an undetermined **category** rendered
+identically to a satisfied one. Empty was satisfied; *visibly marked* was not,
+for two of three fields.
+
+**The signal.** `resolved_by.<field> === 'none'` — the contract's own statement
+that the field could not be determined — is now the only input to the marking, on
+all three fields. Nothing is inferred from an empty value, and a field the assist
+*suggested* is untouched: it keeps its `sugerido` tag and is never marked as a
+hole. Verified against the real parser on 8001:
+`POST /api/expenses/parse "compré algo"` → all three `none`;
+`"gasté cinco mil, no sé en qué"` → `amount: rules`, `category: none`.
+
+| Change | Serves |
+|---|---|
+| `src/routes/finanzas/GastoForm.tsx:203-211` — `amountMissing` / `categoryMissing` / `methodMissing`, each from `resolved_by`, each cleared the moment the field is filled | Interface Contract `POST /api/voice/transcribe` → `ExpenseDraft.resolved_by` (AC 9.2) |
+| `src/routes/finanzas/GastoForm.tsx:241-252, 266-283, 314-324` — the tag on all three labels; category's tag is the *else* branch of `sugerido`, so the two states cannot both show | AC 9.2, and 9.3's suggestion kept distinct from a hole |
+| `src/components/ui/Form.tsx:78-125` — `AmountInput` takes `missing`; wraps the box in the region and **drops the `0` placeholder**, so nothing on screen can be read as an amount the system chose | AC 9.2 ("SHALL NOT invent, guess, or default a value") |
+| `src/components/ui/Form.module.css:63-95` — `.needsInput`, the same dashed violet region on the same wash as the chip rows, plus its focus and error precedence | approved treatment, extended (constraints 3, 5) |
+| `src/components/ui/Chip.module.css:81-89` — `.missing .chip:hover` | a hover defect the extension exposed, below |
+| `src/components/ui/Chip.tsx`, `Form.tsx` — `Tag` takes an `id`, the controls take `aria-describedby` | constraint 6: the marking is not only visual |
+| `src/copy/es.ts:85-90` — `faltaEscribirlo` / `faltaElegirla` / `faltaElegirlo` | constraints 23, 24: one phrase family, right gender, right verb per control |
+| `src/test/captura.test.tsx:97-225` — 5 tests; `src/test/estilos.test.ts:76-94` — 1 | 9.2 was untested; these fail if a field loses its mark or the two regions drift apart |
+
+**A hover defect the extension exposed, and fixed.** A chip's `:hover` background
+is `--violet-wash` — which is the missing region's own fill. Inside the region a
+hovered chip therefore *dissolved* into the background instead of lifting. Only
+the border distinguished it, and no static render shows this. `.missing
+.chip:hover` now keeps the paper fill and takes a violet edge; `:active` is
+untouched and still reads as the darker press. This was already true of the
+approved payment-method region — the mockups never captured hover, which is the
+Phase 5c lesson repeating — so the fix improves that screen too.
+
+**Verified by rendering, at 98 captures, 0 findings.** Nine new shots (89 → 98), each
+byte-distinct from its default (so no forced state was silently lost):
+`gasto-voz-revision--sin-monto` is QA's own "compré algo" repro end to end,
+including the assist returning *Otros* — the amount and method are marked while
+the category reads *sugerido*; `--sin-categoria` is QA's "gasté cinco mil, no sé
+en qué"; `--sin-nada` is all three at once, and `--sin-nada--320` is the same at
+320 px with no overflow. Interactive states: `--sin-monto-foco` (the region turns
+solid violet), `--sin-monto-error` (rejected while still unfilled — red beats
+both the region and the focus rule, constraint 3), `--sin-categoria-hover`,
+`--sin-categoria-foco` (the first chip, against the region's padding: the focus
+ring is not clipped) and `--sin-categoria-activo`. **Disabled** does not exist on
+this screen — `ChipRow`'s `disabled` prop is not passed here and the amount input
+is never disabled — so it is absent rather than uncaptured.
+
+**Two things this state has that the approved mockups do not.** The mockup
+`mockups/gasto-voz-revision.html` only ever showed the amount *filled*, so an
+undetermined amount was never drawn for the human to approve. I built it from the
+approved vocabulary rather than inventing one — same region, same wash, same tag
+— and left the mockups as the record of what was approved rather than editing
+them after the fact. The two departures inside that vocabulary are named above:
+the dropped `0` placeholder, and the amount's own underline suppressed inside the
+region (the region is the frame; two rules read as two boxes).
+
+**One observation about the harness, not about this change.** On the first run of
+this pass the three `finanzas-hoy--fila-*` shots printed `could not force … no
+element for ul li a` — the seeded expenses were dated the previous day, so the
+Today list had no rows to force. The run still reported *0 findings*. That is
+deferral **F8** in the flesh: `force:`-selector shots skip the liveness check, so
+they can prove nothing while passing. They warn only when the selector matches
+*nothing*; had the element existed and then re-rendered, the capture would have
+been silently filed as hover. `node tools/seed.mjs` fixed the data and the final
+run is clean, but F8 is worth closing.
+
+**Not changed, deliberately.** The assist filling *Otros* for "compré algo" is
+the backend's suggestion path and PM's call, per QA; the UI labels it *sugerido*
+and does not second-guess it. D4 and D6 remain deferred and untouched.
 
 ## Escalations / Deviations
 
@@ -345,13 +429,18 @@ and an explicit nothing-written state · 7.3 inviting empty state.
 
 **R8** — 8.1 listening takeover with stop and cancel · 8.2 transcript shown before
 anything is written · 8.3 cancel issues no request · 8.4 failure copy per code,
-retry and manual both offered · **8.5 permission denial — path built, not
-capturable here; QA must check on device** · 8.6 nothing saves until the form is
+retry and manual both offered · **8.5 permission denial — Pass, verified by QA.
+This note previously called it uncapturable in this environment; that was wrong.
+QA reached it with CDP `Browser.setPermission {microphone: denied}` against a
+Chromium started *without* `--use-fake-ui-for-media-stream`, and the denial
+screen rendered correctly** · 8.6 nothing saves until the form is
 submitted · 8.7 backend · 8.8 working state immediately, 28 s client abort inside
 the 30 s bound · 8.9 "Escribir a mano" from t=0 via `AbortController`.
 
-**R9** — 9.1 draft seeds the form · 9.2 `resolved_by === 'none'` leaves the field
-empty and marks it · 9.3 backend · 9.4 `categoryTouched` ref: a late suggestion
+**R9** — 9.1 draft seeds the form · **9.2 all three fields — amount, category and
+payment method — are left empty and marked when `resolved_by.<field> === 'none'`
+(see *QA D1* below; before that fix only the payment method was marked)** · 9.3
+backend · 9.4 `categoryTouched` ref: a late suggestion
 never overwrites a touched field · 9.5 nothing in any list distinguishes source ·
 9.6, 9.7 backend.
 

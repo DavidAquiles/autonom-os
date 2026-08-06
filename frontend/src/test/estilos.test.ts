@@ -73,6 +73,26 @@ describe('constraint 3 — red is reserved', () => {
   })
 })
 
+describe('criterion 9.2 — one "needs input" region, not two that drift', () => {
+  // The amount is not a chip row, so the region is declared twice: `.missing`
+  // in Chip.module.css and `.needsInput` in Form.module.css. This is what stops
+  // the two from becoming different-looking marks for the same thing.
+  const region = (css: string, cls: string) =>
+    css.match(new RegExp(`\\.${cls}\\s*\\{[^}]*\\}`))?.[0] ?? ''
+
+  const chips = region(read(resolve(SRC, 'components/ui/Chip.module.css')), 'missing')
+  const amount = region(read(resolve(SRC, 'components/ui/Form.module.css')), 'needsInput')
+
+  it('marks both with the same dashed violet region on the same wash', () => {
+    for (const block of [chips, amount]) {
+      expect(block).toMatch(/border:\s*1\.5px dashed var\(--violet-line\)/)
+      expect(block).toMatch(/border-radius:\s*16px/)
+      expect(block).toMatch(/padding:\s*10px/)
+      expect(block).toMatch(/background:\s*var\(--violet-wash\)/)
+    }
+  })
+})
+
 describe('constraint 14 — the typeface is self-hosted and openly licensed', () => {
   it('loads Lato from the repo and never from a remote host', () => {
     const base = read(resolve(SRC, 'styles/base.css'))

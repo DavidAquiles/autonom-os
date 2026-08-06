@@ -60,6 +60,42 @@
   color: var(--ink-ghost);
 }
 
+/*
+ * 9.2: the amount the voice pass could not determine, marked as needing input
+ * with the affordance already approved for the payment method — a dashed
+ * violet region on a violet wash, under a "falta…" tag in the label. This is
+ * the same region as `.missing` in Chip.module.css, restated here because the
+ * amount is not a chip row; estilos.test.ts fails if the two drift apart.
+ */
+.needsInput {
+  border: 1.5px dashed var(--violet-line);
+  border-radius: 16px;
+  padding: 10px;
+  background: var(--violet-wash);
+}
+/* The region is the field's frame while it is unfilled; a second rule under the
+   number reads as two boxes. Declared after .amountBox:focus-within and
+   .amountBox.amountError, both of which it must beat inside the region. */
+.needsInput .amountBox {
+  border-bottom-color: transparent;
+}
+/* …which takes the focus indication with it, so the region carries it instead.
+   Declared after .needsInput, which it must beat. */
+.needsInput:focus-within {
+  border-style: solid;
+  border-color: var(--violet);
+}
+/* A rejected amount reads as an error, not as an unfilled field — red is
+   reserved for exactly this (constraint 3). The second selector is what beats
+   .needsInput:focus-within above, so the red survives while the field is
+   focused, which is exactly when a rejected amount is read. */
+.needsInputError,
+.needsInputError:focus-within {
+  border-style: solid;
+  border-color: var(--danger);
+  background: var(--paper);
+}
+
 .input,
 .textarea {
   width: 100%;

@@ -41,6 +41,13 @@ interface VoiceState {
 
 type Errors = Partial<Record<'amount_cop' | 'category_id' | 'payment_method_id' | 'spent_on', string>>
 
+// 9.2: the "falta…" tag is the field's description, not decoration, so the
+// control points at it and the marking survives being read aloud. One form is
+// on screen at a time, so these are constants rather than generated ids.
+const NEED_AMOUNT = 'falta-monto'
+const NEED_CATEGORY = 'falta-categoria'
+const NEED_METHOD = 'falta-metodo'
+
 export function NuevoGasto() {
   return <GastoForm mode="nuevo" />
 }
@@ -191,7 +198,17 @@ function GastoForm({ mode, expenseId }: { mode: 'nuevo' | 'editar'; expenseId?: 
 
   const title = mode === 'editar' ? gasto.editar : voice ? gasto.revisar : gasto.nuevo
   const draft = voice?.draft ?? null
-  const methodMissing = Boolean(voice) && methodId === null
+
+  /*
+   * 9.2: `resolved_by.<field> === 'none'` is the contract's own statement that
+   * the field could not be determined, and the only signal used here — an
+   * empty value is not evidence of anything, and a field the assist *suggested*
+   * is a different state that keeps its "sugerido" tag instead. The mark clears
+   * the moment the field is filled, so it always describes the form as it is.
+   */
+  const amountMissing = draft?.resolved_by.amount === 'none' && amount.trim() === ''
+  const categoryMissing = draft?.resolved_by.category === 'none' && categoryId === null
+  const methodMissing = draft?.resolved_by.payment_method === 'none' && methodId === null
 
   return (
     <Screen header={<FormBar title={title} back="/finanzas" />} capture={null} active="finanzas">
@@ -221,11 +238,25 @@ function GastoForm({ mode, expenseId }: { mode: 'nuevo' | 'editar'; expenseId?: 
           </div>
         )}
 
-        <Field label={gasto.monto}>
+        <Field
+          label={gasto.monto}
+          after={
+            amountMissing ? (
+              <>
+                {' '}
+                <Tag need id={NEED_AMOUNT}>
+                  {gasto.faltaEscribirlo}
+                </Tag>
+              </>
+            ) : null
+          }
+        >
           <AmountInput
             value={amount}
             onValueChange={(v) => setAmount(formatAmountInput(v))}
             invalid={Boolean(errors.amount_cop)}
+            missing={amountMissing}
+            describedBy={amountMissing ? NEED_AMOUNT : undefined}
             label={gasto.monto}
             autoFocus={mode === 'nuevo' && !voice}
           />
@@ -240,6 +271,13 @@ function GastoForm({ mode, expenseId }: { mode: 'nuevo' | 'editar'; expenseId?: 
                 {' '}
                 <Tag>{gasto.sugerido}</Tag>
               </>
+            ) : categoryMissing ? (
+              <>
+                {' '}
+                <Tag need id={NEED_CATEGORY}>
+                  {gasto.faltaElegirla}
+                </Tag>
+              </>
             ) : null
           }
         >
@@ -247,6 +285,8 @@ function GastoForm({ mode, expenseId }: { mode: 'nuevo' | 'editar'; expenseId?: 
             ariaLabel={gasto.categoria}
             options={categories.data ?? []}
             selectedId={categoryId}
+            missing={categoryMissing}
+            describedBy={categoryMissing ? NEED_CATEGORY : undefined}
             onSelect={(id) => {
               categoryTouched.current = true
               setCategorySuggested(false)
@@ -277,7 +317,9 @@ function GastoForm({ mode, expenseId }: { mode: 'nuevo' | 'editar'; expenseId?: 
             methodMissing ? (
               <>
                 {' '}
-                <Tag need>{gasto.faltaElegirlo}</Tag>
+                <Tag need id={NEED_METHOD}>
+                  {gasto.faltaElegirlo}
+                </Tag>
               </>
             ) : null
           }
@@ -290,6 +332,7 @@ function GastoForm({ mode, expenseId }: { mode: 'nuevo' | 'editar'; expenseId?: 
             newLabel={gasto.nuevo_}
             onNew={() => setCreating('payment-methods')}
             missing={methodMissing}
+            describedBy={methodMissing ? NEED_METHOD : undefined}
           />
           {creating === 'payment-methods' && (
             <InlineCreate

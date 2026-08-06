@@ -81,12 +81,19 @@ export const AmountInput = forwardRef<
     value: string
     onValueChange: (v: string) => void
     invalid?: boolean
+    /** 9.2: the voice pass could not determine the amount — mark it as needing input */
+    missing?: boolean
+    /** id of the "falta…" tag, so the marking reaches a screen reader too */
+    describedBy?: string
     label: string
     autoFocus?: boolean
   }
->(function AmountInput({ value, onValueChange, invalid, label, autoFocus }, ref) {
+>(function AmountInput(
+  { value, onValueChange, invalid, missing, describedBy, label, autoFocus },
+  ref,
+) {
   const id = useId()
-  return (
+  const box = (
     <div className={invalid ? `${s.amountBox} ${s.amountError}` : s.amountBox}>
       <span className={s.currency} aria-hidden="true">
         $
@@ -100,12 +107,20 @@ export const AmountInput = forwardRef<
         inputMode="numeric"
         autoComplete="off"
         enterKeyHint="done"
-        placeholder="0"
+        // 9.2: an undetermined amount shows no "0" to be misread as a value the
+        // system decided on. The format hint is only offered where nothing is
+        // being claimed about the number.
+        placeholder={missing ? '' : '0'}
         aria-label={label}
         aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         autoFocus={autoFocus}
       />
     </div>
+  )
+  if (!missing) return box
+  return (
+    <div className={invalid ? `${s.needsInput} ${s.needsInputError}` : s.needsInput}>{box}</div>
   )
 })
 

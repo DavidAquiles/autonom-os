@@ -78,6 +78,14 @@
   padding: 10px;
   background: var(--violet-wash);
 }
+/* A chip's hover wash is the region's own colour, so inside the region the chip
+   appears to dissolve instead of lifting. It keeps the paper fill and takes the
+   violet edge instead. Declared after .chip:hover and .new:hover, which it must
+   beat; :active is unaffected and still reads as the darker press. */
+.missing .chip:hover {
+  background: var(--paper);
+  border-color: var(--violet);
+}
 
 .tag {
   display: inline-flex;

@@ -82,6 +82,11 @@ export const gasto = {
   seQuedaComoEsta: 'Lo que ya escribiste se queda como está.',
   hoyEs: (fecha: string) => `Hoy, ${fecha}`,
   cambiarFecha: 'Cambiar',
+  // 9.2: one phrase family for "the voice pass could not determine this",
+  // said in the gender of the field and the verb of its control — the amount
+  // is written, the category and the method are chosen.
+  faltaEscribirlo: 'Falta escribirlo',
+  faltaElegirla: 'Falta elegirla',
   faltaElegirlo: 'Falta elegirlo',
   sugerido: 'sugerido',
   escuche: 'Esto fue lo que escuché',

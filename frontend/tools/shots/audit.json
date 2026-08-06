@@ -968,6 +968,105 @@
     "innerWidth": 390
   },
   {
+    "name": "gasto-voz-revision--sin-monto",
+    "width": 390,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-voz-revision--sin-monto-foco",
+    "width": 390,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-voz-revision--sin-monto-error",
+    "width": 390,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-voz-revision--sin-categoria",
+    "width": 390,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-voz-revision--sin-categoria-hover",
+    "width": 390,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-voz-revision--sin-categoria-foco",
+    "width": 390,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-voz-revision--sin-categoria-activo",
+    "width": 390,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-voz-revision--sin-nada",
+    "width": 390,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 390,
+    "innerWidth": 390
+  },
+  {
+    "name": "gasto-voz-revision--sin-nada--320",
+    "width": 320,
+    "forceLost": false,
+    "contrast": [],
+    "targets": [],
+    "overflow": false,
+    "darkRules": 0,
+    "scrollWidth": 320,
+    "innerWidth": 320
+  },
+  {
     "name": "diario-voz-revision",
     "width": 390,
     "forceLost": false,

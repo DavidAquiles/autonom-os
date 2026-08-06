@@ -666,6 +666,128 @@ const VOICE_SHOTS = [
       { wait: 2500 },
     ],
   },
+  /*
+   * 9.2 (defect D1): the three shapes of "the voice pass could not determine
+   * this". Each one is a real transcribe response with `resolved_by` saying
+   * "none" for a different field — the same signal the UI reads — so the mark
+   * is verified where it is painted, not where it is coded.
+   */
+  ...(() => {
+    const draft = (over) => ({
+      transcript: over.transcript,
+      audio_ms: 3100,
+      elapsed_ms: 5400,
+      draft: {
+        amount_cop: null,
+        category_id: null,
+        category_name: null,
+        payment_method_id: null,
+        payment_method_name: null,
+        description: over.transcript,
+        description_truncated: false,
+        ...over.draft,
+      },
+    })
+    // Nothing suggested, so the empty category stays empty and stays marked.
+    const noAssist = { category_id: null, category_name: null, source: 'none' }
+    const record = [
+      { clickSelector: 'button[aria-label="Grabar con la voz"]' },
+      { wait: 2200 },
+      { clickText: 'Listo' },
+      { wait: 2500 },
+    ]
+
+    // QA's own repro, whole: "compré algo" resolves nothing (verified against
+    // POST /api/expenses/parse), then the assist offers "Otros". The suggested
+    // category must read as a suggestion while the amount reads as a hole.
+    const sinMonto = {
+      'POST /api/expenses/suggest-category': {
+        category_id: 10,
+        category_name: 'Otros',
+        source: 'llm',
+      },
+      'POST /api/voice/transcribe': draft({
+        transcript: 'compré algo',
+        draft: { resolved_by: { amount: 'none', category: 'none', payment_method: 'none' } },
+      }),
+    }
+    const sinCategoria = {
+      'POST /api/expenses/suggest-category': noAssist,
+      'POST /api/voice/transcribe': draft({
+        transcript: 'gasté cinco mil, no sé en qué',
+        draft: {
+          amount_cop: 5000,
+          payment_method_id: 1,
+          payment_method_name: 'Efectivo',
+          resolved_by: { amount: 'rules', category: 'none', payment_method: 'rules' },
+        },
+      }),
+    }
+    const sinNada = {
+      'POST /api/expenses/suggest-category': noAssist,
+      'POST /api/voice/transcribe': draft({
+        transcript: 'no sé qué pasó',
+        draft: { resolved_by: { amount: 'none', category: 'none', payment_method: 'none' } },
+      }),
+    }
+
+    return [
+      { name: 'gasto-voz-revision--sin-monto', url: '/finanzas', stubs: sinMonto, before: record },
+      {
+        name: 'gasto-voz-revision--sin-monto-foco',
+        url: '/finanzas',
+        stubs: sinMonto,
+        before: record,
+        forceText: [['Monto', ['focus', 'focus-visible']]],
+      },
+      {
+        // Rejected while still unfilled: red must win over the violet region.
+        name: 'gasto-voz-revision--sin-monto-error',
+        url: '/finanzas',
+        stubs: sinMonto,
+        before: [...record, { clickText: 'Guardar gasto' }, { wait: 500 }],
+        forceText: [['Monto', ['focus', 'focus-visible']]],
+      },
+      {
+        name: 'gasto-voz-revision--sin-categoria',
+        url: '/finanzas',
+        stubs: sinCategoria,
+        before: record,
+      },
+      {
+        name: 'gasto-voz-revision--sin-categoria-hover',
+        url: '/finanzas',
+        stubs: sinCategoria,
+        before: record,
+        forceText: [['Mercado', ['hover']]],
+      },
+      {
+        // The first chip sits against the region's 10px padding: the worst case
+        // for a focus ring being clipped by the region's own border.
+        name: 'gasto-voz-revision--sin-categoria-foco',
+        url: '/finanzas',
+        stubs: sinCategoria,
+        before: record,
+        forceText: [['Comida', ['focus', 'focus-visible']]],
+      },
+      {
+        name: 'gasto-voz-revision--sin-categoria-activo',
+        url: '/finanzas',
+        stubs: sinCategoria,
+        before: record,
+        forceText: [['Mercado', ['active']]],
+      },
+      { name: 'gasto-voz-revision--sin-nada', url: '/finanzas', stubs: sinNada, before: record },
+      {
+        name: 'gasto-voz-revision--sin-nada--320',
+        url: '/finanzas',
+        width: 320,
+        height: 720,
+        stubs: sinNada,
+        before: record,
+      },
+    ]
+  })(),
   {
     name: 'diario-voz-revision',
     url: '/diario',
