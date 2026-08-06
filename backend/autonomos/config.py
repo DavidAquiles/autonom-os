@@ -18,6 +18,15 @@ def _env(name: str, default: str) -> str:
     return default if value is None or value == "" else value
 
 
+def _env_first(names: tuple[str, ...], default: str) -> str:
+    """First of several accepted names that is set. Later names are legacy."""
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return default
+
+
 def _env_int(name: str, default: int) -> int:
     try:
         return int(_env(name, str(default)))
@@ -60,8 +69,19 @@ class Settings:
     )
 
     # --- listeners (KD-2) ---------------------------------------------------
-    api_host: str = field(default_factory=lambda: _env("API_HOST", "127.0.0.1"))
-    api_port: int = field(default_factory=lambda: _env_int("API_PORT", 8000))
+    # The loopback port `tailscale serve` points at. Default 8001, not 8000:
+    # 8000 is permanently held on this host by an unrelated Docker container
+    # (`trace_erp_api`, published on all interfaces), so a default of 8000 would
+    # crash-loop the unit on the one machine this app runs on. Configurable —
+    # the point is that the default works here.
+    api_host: str = field(
+        default_factory=lambda: _env_first(("AUTONOMOS_API_HOST", "API_HOST"), "127.0.0.1")
+    )
+    api_port: int = field(
+        default_factory=lambda: int(
+            _env_first(("AUTONOMOS_API_PORT", "API_PORT"), "8001")
+        )
+    )
     # The LAN fallback binds ONE named interface and is never 0.0.0.0. Unset it
     # on any network David does not control — it is unauthenticated by A6.
     lan_bind_addr: str = field(default_factory=lambda: _env("LAN_BIND_ADDR", ""))

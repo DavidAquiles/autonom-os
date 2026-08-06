@@ -165,6 +165,12 @@ async def _generate_answer(
     last_flush = 0.0
 
     def on_token(piece: str) -> None:
+        """Accumulate, and checkpoint to `partial_answer` for diagnostics only.
+
+        That column is **never serialised to a client** (KD-11): it holds text
+        NumericGuard has not yet run on. It exists so a failed or preempted job
+        can be inspected afterwards.
+        """
         nonlocal last_flush
         buffer.append(piece)
         now = time.monotonic()
@@ -172,7 +178,7 @@ async def _generate_answer(
             last_flush = now
             try:
                 jobs_repo.set_partial(conn, job_id, "".join(buffer))
-            except Exception:  # a partial is a nicety, never a failure path
+            except Exception:  # diagnostics are never a failure path
                 pass
 
     attempt = 0

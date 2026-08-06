@@ -65,7 +65,8 @@ def job_status(job_id: str) -> dict:
         "status": row["status"],
         "question": row["question"],
         "elapsed_ms": _elapsed_ms(row),
-        "partial_answer": row["partial_answer"],
+        # `partial_answer` is NOT serialised (KD-11). It holds text NumericGuard
+        # has not yet run on; `answer` stays null until the job is `done`.
         "answer": row["answer"],
         "facts": json.loads(row["facts_json"]) if row["facts_json"] else None,
         "error_code": row["error_code"],

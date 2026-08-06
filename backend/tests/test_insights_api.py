@@ -43,6 +43,44 @@ def test_11_12_a_question_is_accepted_immediately_with_a_job_id(client, fake_llm
     assert body["job_id"]
 
 
+def test_11_2_no_unvalidated_text_is_ever_on_the_wire(client, fake_llm):
+    """KD-11: `partial_answer` is not serialised and `answer` is null until
+    `done`. NumericGuard runs on the *complete* output, so a figure shown
+    mid-flight could be retracted afterwards — and one that was shown was still
+    shown. The column stays for server-side diagnostics only."""
+    from autonomos.db import get_db
+    from autonomos.repo import jobs as jobs_repo
+
+    seed_expense(client)
+    fake_llm.delay_s = 2.0
+    job = client.post(
+        "/api/insights/questions", json={"question": "¿cuánto gasté hoy?"}
+    ).json()
+    time.sleep(0.3)
+
+    in_flight = client.get(f"/api/insights/questions/{job['job_id']}").json()
+    assert "partial_answer" not in in_flight
+    assert in_flight["answer"] is None
+    assert in_flight["status"] in ("queued", "running")
+    assert in_flight["elapsed_ms"] >= 0  # the only progress signal
+
+    client.delete(f"/api/insights/questions/{job['job_id']}")
+    # The column itself still exists for diagnostics.
+    assert "partial_answer" in jobs_repo.get(get_db(), job["job_id"]).keys()
+
+
+def test_a_finished_job_still_carries_no_partial_field(client, fake_llm):
+    seed_expense(client)
+    fake_llm.response = "Hoy gastaste 14.000 pesos."
+    job = client.post(
+        "/api/insights/questions", json={"question": "¿cuánto gasté hoy?"}
+    ).json()
+    body = poll(client, job["job_id"])
+    assert body["status"] == "done"
+    assert "partial_answer" not in body
+    assert body["answer"] == "Hoy gastaste 14.000 pesos."
+
+
 def test_11_8_a_finance_question_is_answered_from_recorded_expenses(client, fake_llm):
     seed_expense(client, amount=14000)
     fake_llm.response = "Este mes gastaste 14.000 pesos, todo en Comida (100%)."

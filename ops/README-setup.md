@@ -4,7 +4,7 @@ Four **systemd user units**, none of them root, all inside `$HOME`:
 
 | Unit | What it is | Bind |
 | --- | --- | --- |
-| `autonomos-api` | FastAPI, one worker, scheduler + InferenceArbiter in-process | `127.0.0.1:8000` and, when configured, `${LAN_BIND_ADDR}:8443` (TLS) |
+| `autonomos-api` | FastAPI, one worker, scheduler + InferenceArbiter in-process | `127.0.0.1:8001` and, when configured, `${LAN_BIND_ADDR}:8443` (TLS) |
 | `autonomos-whisper` | whisper.cpp `whisper-server`, `small` q5_1, `-l es`, 6 threads | `127.0.0.1:8081` |
 | `ollama` | Qwen2.5-3B-Instruct Q4_K_M, `OLLAMA_KEEP_ALIVE=-1` | `127.0.0.1:11434` |
 | `tailscaled` | non-root userspace-networking daemon | socket in `~/.local/share/tailscale` |
@@ -12,7 +12,8 @@ Four **systemd user units**, none of them root, all inside `$HOME`:
 ## Install
 
 ```bash
-ops/setup.sh
+ops/setup.sh --check     # ports and prerequisites only, changes nothing
+ops/setup.sh             # install and start
 ```
 
 It checks the host, creates `ops/autonomos.env` from the example, provisions the
@@ -20,6 +21,21 @@ CPython 3.12 venv with `uv`, installs and starts the four units, and runs
 `loginctl enable-linger`. **Lingering is not optional**: user units do not start
 at boot without a login session, and 14.1 and 13.7 both require the system to
 just be there after a restart.
+
+### The API listens on 8001, not 8000
+
+Port **8000 on this machine belongs to another project** — the `trace_erp_api`
+Docker container from `trace_2026_deploy`, published on all interfaces. It is
+long-running and **must not be stopped or reconfigured**. So the loopback port
+this app listens on is `AUTONOMOS_API_PORT=8001`, and `tailscale serve` points
+there.
+
+Nothing about 8001 is sacred; it is configuration. If it is ever taken too, set
+`AUTONOMOS_API_PORT` in `ops/autonomos.env`, re-run `ops/setup.sh`, and re-point
+`tailscale serve` at the new port. `ops/setup.sh` refuses to install a unit whose
+port is already listening rather than leaving you with a crash-looping service
+whose failure looks like a bug in this app — run `ops/setup.sh --check` any time
+to see the port situation without changing anything.
 
 ## The two steps a script cannot do
 
@@ -31,7 +47,7 @@ just be there after a restart.
 2. **Publish over HTTPS**:
    ```bash
    ~/.local/bin/tailscale --socket=$HOME/.local/share/tailscale/tailscaled.sock \
-       serve --bg https / http://127.0.0.1:8000
+       serve --bg https / http://127.0.0.1:8001
    ```
    `tailscale funnel` — the public option — stays **off**. This HTTPS origin is
    what makes voice capture possible at all: `getUserMedia` requires a secure
@@ -64,8 +80,8 @@ obeying it.
 systemctl --user status  autonomos-api autonomos-whisper ollama tailscaled
 systemctl --user restart autonomos-api
 journalctl --user -u autonomos-api -f
-curl -s http://127.0.0.1:8000/api/health
-curl -s http://127.0.0.1:8000/api/status     # both sidecars, cached ~30 s
+curl -s http://127.0.0.1:8001/api/health
+curl -s http://127.0.0.1:8001/api/status     # both sidecars, cached ~30 s
 ```
 
 `/api/status` answering `"unavailable"` for a sidecar is a normal, visible state:

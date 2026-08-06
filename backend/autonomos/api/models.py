@@ -239,8 +239,14 @@ class JobStatus(Strict):
     job_id: str
     status: Literal["queued", "running", "done", "failed", "cancelled"]
     question: str
+    # `elapsed_ms` is the only progress signal, and no completion fraction
+    # exists or may be implied (KD-11).
     elapsed_ms: int
-    partial_answer: str | None
+    # There is deliberately no `partial_answer` here. No LLM-generated text
+    # reaches a client before NumericGuard has passed on the complete output:
+    # a figure shown for forty seconds and then retracted was still shown, and
+    # 11.2 says figures the user sees must match the Finances screen. The
+    # column stays in `insight_jobs` for server-side diagnostics only.
     answer: str | None
     facts: Facts | None
     error_code: str | None

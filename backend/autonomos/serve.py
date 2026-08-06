@@ -2,8 +2,12 @@
 
 | Origin | Bind | Purpose |
 | --- | --- | --- |
-| `https://<host>.<tailnet>.ts.net` | `tailscale serve` -> `127.0.0.1:8000` | primary |
+| `https://<host>.<tailnet>.ts.net` | `tailscale serve` -> `127.0.0.1:8001` | primary |
 | `https://<LAN-IP>:8443` | uvicorn TLS on `${LAN_BIND_ADDR}` | LAN fallback for 15.5 |
+
+The loopback port is 8001 rather than the conventional 8000 because 8000 is
+permanently occupied on this host by an unrelated project's container; it is
+`AUTONOMOS_API_PORT` and may be changed.
 
 Two uvicorn *processes* would mean two InferenceArbiters and two schedulers,
 which KD-3 rules out ("two arbiters is the same as none"), so both listeners are

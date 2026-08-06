@@ -103,7 +103,8 @@ async def check_contention(sample: Path) -> None:
     await asyncio.wait_for(task, 30)
     final = jobs_repo.get(conn, row["id"])
     print(f"question ended: status={final['status']} error={final['error_code']} "
-          f"partial={(final['partial_answer'] or '')[:60]!r}")
+          f"partial(diagnostics only, not on the wire)="
+          f"{(final['partial_answer'] or '')[:60]!r}")
 
 
 def check_endpoint(sample: Path) -> None:

@@ -15,13 +15,19 @@ tick and the nightly `VACUUM INTO` snapshot. `ops/` carries four systemd **user*
 units, a setup script that runs `loginctl enable-linger`, an `mkcert` helper for
 the LAN fallback origin, and a runbook.
 
-229 backend tests pass. Beyond the suite, the stack was exercised live against the
+231 backend tests pass. Beyond the suite, the stack was exercised live against the
 **real** Ollama and whisper.cpp sidecars over HTTP: an expense saved, a 4 s clip
 transcribed in 5.9 s, a Spanish answer returned in 16.4 s with correct facts, and
 a running question preempted by an arriving transcription. Two live findings
 changed code: whisper's `[Música]` non-speech marker is now rejected as
 `transcription_failed`, and LLM cancellation is now sub-100 ms instead of ~2 s,
 which cut a contended transcription from 17.6 s to 8.5 s.
+
+Two corrections landed after the first pass and are implemented: the loopback API
+port is **8001**, because 8000 belongs permanently to an unrelated project's
+container on this host; and per the KD-11 revision, **`partial_answer` is no
+longer on the wire** — no LLM text reaches a client before NumericGuard has run
+on the complete output.
 
 `state.verification` in `factory/state.json` is `{}` — no deterministic gate has
 run yet, so nothing here contradicts a gate result. Every number above is from a
@@ -33,7 +39,7 @@ command I ran on this host today.
 cd backend
 ~/.local/bin/uv venv --python ~/.local/bin/python3.12 .venv
 ~/.local/bin/uv pip install -e ".[dev]"
-.venv/bin/python -m pytest -q                      # 229 tests
+.venv/bin/python -m pytest -q                      # 231 tests
 .venv/bin/python -m autonomos.serve                # both origins, one process
 ```
 
@@ -101,12 +107,22 @@ so both a missing endpoint and an extra one fail the build.
 | `POST /api/expenses/parse` | rules only, no model |
 | `POST /api/expenses/suggest-category` | never fails the caller; `rules`/`llm`/`none`; validated against existing categories |
 | `POST /api/insights/questions` | `202`; `400`; `503 llm_unavailable`; `409 busy` only for an active job |
-| `GET /api/insights/questions/{job_id}` | full shape incl. `facts`, `elapsed_ms`, `partial_answer`; all terminal `error_code` values reachable |
+| `GET /api/insights/questions/{job_id}` | full shape incl. `facts` and `elapsed_ms`; **no `partial_answer`** and `answer` null until `done` (KD-11 revision); all terminal `error_code` values reachable |
 | `DELETE /api/insights/questions/{job_id}` | 204, cancels generation, touches no data |
 | `GET /api/insights/summaries/latest` | all five states: `ready`/`generating`/`empty`/`failed`/`none` |
 | `GET /api/export` | JSON attachment, ids **and** names, the only export endpoint |
 | Error envelope + closed code set | `errors.py`; every code in the design's list, nothing outside it |
 | `fields[].reason` closed vocabulary | asserted by an `assert` in `ValidationError` itself |
+
+**Picked up mid-flight: the KD-11 revision that removes `partial_answer` from the
+wire.** The design was amended while I was implementing (`factory/architect/design.md`,
+KD-11 and the `GET /api/insights/questions/{job_id}` entry). I implemented it:
+the field is gone from the response model and the handler, `answer` stays null
+until `done`, and `insight_jobs.partial_answer` remains as a **server-side
+diagnostics column** exactly as the revision says — written during generation,
+never serialised. Two tests pin it, including one that checks a job *in flight*
+carries no generated text. The reasoning is the same as `source`: a field present
+in the contract is a field a component will eventually display.
 
 Two contract points where the document left a choice and I made one; neither
 changes a shape, a status code, or a field name:
@@ -131,12 +147,12 @@ flow, or a technology choice. Four things are worth Reviewer's eye.
 
 **1. Two origins, one process — a tension between KD-2 and KD-3, resolved without
 changing either.** KD-2 requires a uvicorn TLS listener on `${LAN_BIND_ADDR}:8443`
-alongside `127.0.0.1:8000`; KD-3 requires exactly one worker because the scheduler
+alongside `127.0.0.1:8001`; KD-3 requires exactly one worker because the scheduler
 and the arbiter are in-process and "two arbiters is the same as none". Two uvicorn
 *processes* would have produced exactly the two arbiters KD-3 forbids. `serve.py`
 runs both listeners as two `uvicorn.Server` instances inside one event loop over
 one app object, so there is one arbiter, one scheduler and one DB writer.
-Verified live: `http://127.0.0.1:8000/api/health` and `https://<addr>:8443/api/health`
+Verified live: `http://127.0.0.1:8001/api/health` and `https://<addr>:8443/api/health`
 both answered from the same process. `LAN_BIND_ADDR=0.0.0.0` is **refused**, not
 obeyed (`serve.py:_lan_enabled`), per KD-2's "one named interface, never all of them".
 
@@ -158,11 +174,21 @@ bracketed token (`[Música]`, `[BLANK_AUDIO]`, `(silencio)`) as
 `transcription_failed`, alongside the "Subtítulos realizados por…" family R5 does
 name. A sentence merely *containing* the word música is unaffected — tested.
 
-**4. Port 8000 is occupied on this host by a process that is not mine.** It answers
-`{"detail":"Not Found"}` — most likely the frontend lane's mock API. I did not
-touch it; I verified `serve.py` on port 8010 instead. The systemd unit still
-targets 8000, which is what `tailscale serve` expects. Whoever brings the units up
-should confirm 8000 is free first.
+**4. The API listens on 8001, because 8000 belongs to another project — permanently.**
+I first reported this as "probably the frontend lane's mock"; **that was wrong**, and
+the coordinator corrected it with `docker ps`: port 8000 is held by
+`trace_erp_api`, a long-running container from David's unrelated
+`trace_2026_deploy` project, published on all interfaces. It is not ours and must
+not be stopped or reconfigured. That makes the collision permanent rather than
+incidental, so a note was not a fix — a default of 8000 would have crash-looped
+`autonomos-api` the first time David ran `ops/setup.sh`, on the one machine this
+app runs on. The default is now `AUTONOMOS_API_PORT=8001` (verified free, as is
+8443) in `config.py`, `ops/autonomos.env.example`, the unit, and the `tailscale
+serve` target in both the script and the runbook. It stays configurable; nothing
+about 8001 is sacred. `ops/setup.sh` now refuses to install a unit whose port is
+already listening, naming the port and telling the user to change
+`AUTONOMOS_API_PORT` — and explicitly telling them **not** to stop whatever holds
+it. `ops/setup.sh --check` runs that preflight and changes nothing.
 
 Not a deviation, but stated so nobody has to reconstruct it: `config.py` holds the
 provider defaults (`LLM_MODEL=qwen2.5:3b-instruct-q4_K_M`, the whisper base URL),
@@ -288,8 +314,9 @@ tested. Storage is byte-exact; only the blank check trims.
 - 11.4 everything else keeps working — capture, editing and views touch SQLite only
   and never enter the arbiter; `503 llm_unavailable` on ask, `/api/status` reports
   it. Tested with the model down.
-- 11.5 visible in-progress state, result or explicit failure — `elapsed_ms` and
-  `partial_answer` both change over time; live run showed partial text persisted.
+- 11.5 visible in-progress state, result or explicit failure — `elapsed_ms` is the
+  only progress signal on the wire and changes every poll; no generated text is
+  returned before NumericGuard has passed on the whole output (KD-11 revision).
 - 11.6 read-only — no handler on the insights path writes to `expenses` or
   `journal_entries`. Tested (the expense survives a cancel).
 - 11.7 Spanish — prompt-enforced, as KD-10 states. Live answers were Spanish.
@@ -360,8 +387,8 @@ remote service; no key, no account. Verified by inspection.
   command by hand — the API through `python -m autonomos.serve`, whisper-server
   with exactly the unit's flags, Ollama already serving. I did not enable them
   because installing user units and enabling linger changes the human's session
-  state, and because port 8000 is currently held by another process, which would
-  have put `autonomos-api` into a crash loop next to the other lane's work.
+  state. (The port-8000 collision that first blocked this is now designed out:
+  the default is 8001 and `ops/setup.sh` preflights it.)
 - **Tailscale login and `tailscale serve`** — interactive, the human's, as briefed.
 - **The LAN certificate** — needs the DHCP-reserved LAN IP. `ops/mkcert-lan.sh`
   takes it as an argument; I proved the TLS listener works with a throwaway cert
@@ -385,6 +412,6 @@ remote service; no key, no account. Verified by inspection.
 | same, before the cancel fix | 17.6 s |
 | finance question, real Ollama, HTTP + polling | 16.4 s |
 | three questions in `live_check llm` | 4.6 s, 17.0 s, 39.6 s |
-| backend test suite | 229 tests, ~8 s |
+| backend test suite | 231 tests, ~8 s |
 
 `elapsed_ms` is logged for every transcription and every job, as R9 asks.

@@ -4,6 +4,7 @@
 #
 #   ops/setup.sh            # install and start everything
 #   ops/setup.sh --units    # (re)install unit files only
+#   ops/setup.sh --check    # preflight only: ports and prerequisites, no changes
 #
 # What this does NOT do, because it needs a human at a keyboard:
 #   * `tailscale up` (interactive login)
@@ -16,8 +17,70 @@ OPS="${REPO_ROOT}/ops"
 UNIT_DIR="${HOME}/.config/systemd/user"
 UNITS=(autonomos-api.service autonomos-whisper.service ollama.service tailscaled.service)
 
+MODE="${1:-}"
+
 say() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 warn() { printf '\033[33m    ! %s\033[0m\n' "$1"; }
+die() { printf '\n\033[31m==> %s\033[0m\n' "$1" >&2; exit 1; }
+
+env_value() {
+  # Read NAME from ops/autonomos.env, falling back to the example, then $2.
+  local name="$1" default="$2" file
+  for file in "${OPS}/autonomos.env" "${OPS}/autonomos.env.example"; do
+    if [ -f "${file}" ]; then
+      local found
+      found="$(sed -n "s/^[[:space:]]*${name}=//p" "${file}" | tail -n1)"
+      [ -n "${found}" ] && { printf '%s' "${found}"; return; }
+    fi
+  done
+  printf '%s' "${default}"
+}
+
+port_is_listening() {
+  local port="$1"
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]${port}\$"
+  else
+    (exec 3<>"/dev/tcp/127.0.0.1/${port}") >/dev/null 2>&1
+  fi
+}
+
+say "Preflight: ports"
+# This collision is not hypothetical. Port 8000 on this host belongs to an
+# unrelated project's Docker container (trace_erp_api, published on all
+# interfaces); a unit pointed at an occupied port crash-loops on start and the
+# failure reads like a bug in this app. Fail here instead, with the port named.
+API_PORT="$(env_value AUTONOMOS_API_PORT 8001)"
+LAN_PORT="$(env_value LAN_PORT 8443)"
+LAN_ADDR="$(env_value LAN_BIND_ADDR '')"
+
+if port_is_listening "${API_PORT}"; then
+  cat >&2 <<EOF
+
+    Port ${API_PORT} is already in use by something else on this machine.
+
+    Do NOT stop whatever holds it — it may belong to another project (port 8000
+    here is an unrelated ERP container). Pick a free port instead:
+
+      1. set AUTONOMOS_API_PORT=<free port> in ops/autonomos.env
+      2. re-run ops/setup.sh
+      3. point Tailscale at the new port:
+           tailscale serve --bg https / http://127.0.0.1:<free port>
+EOF
+  die "refusing to install a unit that would crash-loop on port ${API_PORT}"
+fi
+echo "    API port ${API_PORT} is free"
+
+if [ -n "${LAN_ADDR}" ] && port_is_listening "${LAN_PORT}"; then
+  warn "LAN fallback port ${LAN_PORT} is already in use; change LAN_PORT"
+else
+  echo "    LAN fallback port ${LAN_PORT} is free"
+fi
+for sidecar in 8081 11434; do
+  if port_is_listening "${sidecar}"; then
+    echo "    ${sidecar} already listening (sidecar already running — fine)"
+  fi
+done
 
 require() {
   if [ ! -e "$1" ]; then
@@ -38,6 +101,11 @@ require "${HOME}/.local/bin/tailscale" "https://tailscale.com/download"
 require "${HOME}/.local/bin/mkcert" "needed only for the LAN fallback origin"
 [ "${MISSING}" = "1" ] && warn "install the items above before starting the units"
 
+if [ "${MODE}" = "--check" ]; then
+  say "Preflight only (--check): nothing was installed or changed"
+  exit 0
+fi
+
 say "Configuration"
 if [ ! -f "${OPS}/autonomos.env" ]; then
   cp "${OPS}/autonomos.env.example" "${OPS}/autonomos.env"
@@ -49,7 +117,7 @@ else
 fi
 mkdir -p "${REPO_ROOT}/data/snapshots" "${OPS}/certs"
 
-if [ "${1:-}" != "--units" ]; then
+if [ "${MODE}" != "--units" ]; then
   say "Python environment (CPython 3.12 is pinned; the system 3.14 is not used)"
   cd "${REPO_ROOT}/backend"
   "${HOME}/.local/bin/uv" venv --python "${HOME}/.local/bin/python3.12" .venv
@@ -82,21 +150,22 @@ sleep 3
 systemctl --user --no-pager --lines=0 status "${UNITS[@]}" || true
 
 say "Health"
-curl -fsS --max-time 5 http://127.0.0.1:8000/api/health && echo || warn "API not answering yet"
-curl -fsS --max-time 5 http://127.0.0.1:8000/api/status && echo || true
+curl -fsS --max-time 5 "http://127.0.0.1:${API_PORT}/api/health" && echo || warn "API not answering yet"
+curl -fsS --max-time 5 "http://127.0.0.1:${API_PORT}/api/status" && echo || true
 
-cat <<'NEXT'
+cat <<NEXT
 
 ==> Remaining steps, which need you at the keyboard
 
  1. Join the tailnet (interactive, one time):
-      ~/.local/bin/tailscale --socket=$HOME/.local/share/tailscale/tailscaled.sock up
+      ~/.local/bin/tailscale --socket=\$HOME/.local/share/tailscale/tailscaled.sock up
     Then disable key expiry for this node in the Tailscale admin console (R2).
 
  2. Publish the app over HTTPS on the tailnet — this is what makes voice
-    capture possible at all, because getUserMedia needs a secure context:
-      ~/.local/bin/tailscale --socket=$HOME/.local/share/tailscale/tailscaled.sock \
-          serve --bg https / http://127.0.0.1:8000
+    capture possible at all, because getUserMedia needs a secure context.
+    Note the port: ${API_PORT}, not 8000, which belongs to another project here.
+      ~/.local/bin/tailscale --socket=\$HOME/.local/share/tailscale/tailscaled.sock \\
+          serve --bg https / http://127.0.0.1:${API_PORT}
     Funnel (the public option) must stay OFF (13.6).
 
  3. LAN fallback origin for 15.5 (home internet down):

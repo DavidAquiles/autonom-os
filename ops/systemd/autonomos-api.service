@@ -9,10 +9,11 @@ Wants=autonomos-whisper.service ollama.service
 Type=simple
 WorkingDirectory=%h/Proyectos/Autonom-OS/backend
 EnvironmentFile=%h/Proyectos/Autonom-OS/ops/autonomos.env
-# One process, one worker, two listeners: 127.0.0.1:8000 behind `tailscale
-# serve`, and the LAN TLS fallback on ${LAN_BIND_ADDR}:8443 when configured.
-# Two processes would mean two InferenceArbiters, and two arbiters is the same
-# as none (KD-3, KD-2).
+# One process, one worker, two listeners: 127.0.0.1:${AUTONOMOS_API_PORT}
+# (8001 by default — 8000 is permanently taken on this host by an unrelated
+# project's container) behind `tailscale serve`, and the LAN TLS fallback on
+# ${LAN_BIND_ADDR}:8443 when configured. Two processes would mean two
+# InferenceArbiters, and two arbiters is the same as none (KD-3, KD-2).
 ExecStart=%h/Proyectos/Autonom-OS/backend/.venv/bin/python -m autonomos.serve
 Restart=on-failure
 RestartSec=5
