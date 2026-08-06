@@ -20,9 +20,11 @@ adds a decision at capture time defeats the purpose of the app.
   even a free one.
 - **Away-from-home access via a private network** (VPN-style), not by exposing the
   PC to the internet. He wants to capture the expense on the street.
-- **Host hardware, measured:** 13 GB RAM (~6.7 GB free), 8 CPU cores, integrated
-  AMD Radeon Vega, **no dedicated GPU / no CUDA**, 37 GB disk. Any model proposal
-  must fit this. He accepted that insights will be slow in exchange for privacy.
+- **Host hardware:** 13.1 GiB total RAM, 8 CPU cores, integrated AMD Radeon Vega,
+  **no dedicated GPU / no CUDA**, 37 GB disk. **Plan model sizing against 5.3 GiB
+  available**, not the higher `free -h` reading — available RAM fluctuates and the
+  optimistic number wrongly implies room for two model upgrades instead of one.
+  He accepted that insights will be slow in exchange for privacy.
 - **Spanish** UI and voice.
 
 **How to apply:**

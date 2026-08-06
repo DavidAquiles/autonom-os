@@ -104,9 +104,13 @@ Each of these is pass/fail against a real screen.
 25. Any wait that can exceed roughly two seconds — voice transcription, an insight
     answer — shows progress that visibly changes over time. A static spinner that
     could equally mean "hung" does not satisfy this.
-26. Any wait that can exceed roughly ten seconds — insight generation — presents a
-    visible way to cancel or leave, and says in plain language that the work is
-    happening on the user's own computer.
+26. Any wait that can exceed roughly ten seconds — **voice transcription** and
+    insight generation alike — presents a visible way to cancel or leave, and says
+    in plain language that the work is happening on the user's own computer. Both
+    are named deliberately: measured on this hardware, transcription is the wait
+    the user meets most often, several times a day, where an insight question
+    might be asked weekly. A transcription wait shipped without a cancel
+    affordance fails this constraint.
 27. The periodic summary surface distinguishes, on sight, between three states: a
     summary ready to read, no summary yet produced, and a summary currently being
     produced. None of the three renders as an empty area.

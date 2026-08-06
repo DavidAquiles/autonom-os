@@ -54,9 +54,23 @@ Settled by the human; not open to reinterpretation downstream.
 - **Spanish.** All interface text in Spanish; voice recognition tuned for Spanish
   specifically.
 
-**Measured host hardware** (fact, not estimate): 13 GB RAM (~6.7 GB available),
-8 CPU cores, integrated AMD Radeon Vega graphics with no dedicated GPU and no
-CUDA, 37 GB free disk.
+**Measured host hardware**, from readings taken on the host on 2026-08-05:
+
+- **Total RAM 13.1 GiB.** Stable; this one is a fact.
+- **Available RAM measured between 5.3 GiB and 6.7 GiB** across two readings that
+  day — `free -h` early on, and Ollama's own startup log later. Available RAM is a
+  moment-in-time figure that moves with the page cache and whatever else the
+  desktop is doing, so both numbers were true when taken and neither is a
+  constant. **Plan against 5.3 GiB.** That is the denominator the design uses and
+  the one this spec means whenever it treats memory as a constraint.
+- 8 CPU cores; integrated AMD Radeon Vega graphics, **no dedicated GPU and no
+  CUDA**; 37 GB free disk.
+
+The distinction matters and is not pedantry: sized against 6.7 GiB, a reader
+concludes there is room for both of the model-upgrade paths the design considers.
+Sized against 5.3 GiB, there is room for one. An earlier version of this spec
+called the available figure "fact, not estimate" — that label was mine and it was
+wrong for a quantity that fluctuates.
 
 **The consequence David accepted before choosing:** on this hardware, local voice
 transcription runs comfortably, but the local LLM is **noticeably slower and
@@ -457,8 +471,15 @@ wherever I am, so that I can record the spend the moment I make it.
      NOT be reachable from the public internet — only from the user's own private
      network.
 13.7 WHEN the user has completed the one-time setup on their phone THEN routine
-     daily use SHALL require no additional connection step, login, or manual
-     action before capturing something.
+     daily use — opening the app the usual way, under normal conditions, to
+     capture or read something — SHALL require no additional connection step,
+     login, or manual action before capturing something. Recovering from an
+     outage is not routine daily use and is governed by 13.8, not by this
+     criterion.
+13.8 WHEN the usual way of opening the app cannot reach the server THEN the system
+     SHALL tell the user in plain Spanish, at the moment they hit it, what to do
+     instead, and the working alternative SHALL be reachable in no more than one
+     deliberate action from what the user is already looking at.
 
 ### Requirement 14 — The record survives
 

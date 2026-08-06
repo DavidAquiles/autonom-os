@@ -235,8 +235,20 @@ against the context budgets in KD-10:
 | journal question (1,200-token context, ~1,400 total, 220 out) | 39-54 s | 16-22 s | **~55-76 s** |
 | monthly summary (~1,800-token prompt, 320 out) | 50-69 s | 23-32 s | **~73-101 s** |
 
-All three fit inside 11.12's 120 s and inside `LLM_TIMEOUT_S=110`, and the summary is background
-work nobody waits on (11.15). Two things follow that downstream roles must not undo:
+**Read these as the tops of their ranges, not the midpoints.** The two measured points show prompt
+evaluation degrading with prompt length — 35.8 tok/s at 113 tokens, 25.7 tok/s at 1,915 — so for
+the two long-prompt workloads the applicable rate is the slow end. Plan on ~76 s for a journal
+question and ~101 s for a summary.
+
+**The two workloads therefore get different budgets, not one.** Questions run against a 110 s
+deadline from `created_at` (KD-11), which 76 s clears. Summaries run against
+`LLM_TIMEOUT_SUMMARY_S=300`, because **the summary has no deadline in the spec at all** — 11.15 is
+served by the previous month's stored row however long the current one takes, and 11.17 is
+guaranteed structurally by the arbiter. Holding a 101-second worst case against a 110-second cutoff
+bought nothing and manufactured `failed` rows for an 8% overshoot on single-run benchmarks that R9
+itself says are not a p95. It was the same number applied to a criterion that does not govern it.
+
+Two more things follow that downstream roles must not undo:
 
 - **The 1,200-token journal budget is load-bearing, not a round number.** At 26 tok/s the original
   2,000-token budget would have been ~77 s of prompt evaluation *before the first token*, putting a
@@ -277,12 +289,18 @@ reasoned about component by component:
 | whisper-server + `small` q5_1 | **476 MB (measured)** |
 | API process (CPython 3.12, FastAPI, SQLite page cache) | ~0.25 GB |
 | `tailscaled` | ~0.08 GB |
-| **total** | **~3.4 GB of 5.3 GiB, leaving ~1.9 GB** |
+| **total** | **~3.41 GB of 5.69 GB (= 5.3 GiB), leaving ~2.28 GB** |
 
-The consequence is now sharper than it looked at a 6.7 GB denominator: the two documented upgrade
+Units, because this table is what the model ladder will be planned against: **5.3 GiB is 5.69 GB**,
+and the subtraction is done in GB throughout. The reading is also a **pre-load** one — it comes
+from Ollama's startup log, before either model is resident — which makes the table self-checking:
+once both are loaded, `available` should read roughly 2.3 GB, and if it does not, one of these
+rows is wrong.
+
+The consequence is sharper than it looked at a 6.7 GB denominator: the two documented upgrade
 paths — whisper `medium` (+~1.0 GB) and Qwen3-4B-Instruct-2507 (+~0.6 GB) — are each individually
-affordable within ~1.9 GB of headroom and are **clearly not both** affordable alongside a browser
-and a desktop session. If R3 and R9 both bite, exactly one of the two gets upgraded.
+affordable within ~2.28 GB of headroom and are **not both** affordable alongside a browser and a
+desktop session. If R3 and R9 both bite, exactly one of the two gets upgraded.
 
 ### KD-7. Both AI layers sit behind provider interfaces whose default speaks OpenAI-compatible HTTP
 
@@ -297,7 +315,9 @@ Selected at startup from config:
 
 ```
 LLM_PROVIDER=openai_compatible   LLM_BASE_URL=http://127.0.0.1:11434/v1
-LLM_MODEL=qwen2.5:3b-instruct-q4_K_M   LLM_TIMEOUT_S=110
+LLM_MODEL=qwen2.5:3b-instruct-q4_K_M
+LLM_DEADLINE_ANSWER_S=110        LLM_MIN_START_BUDGET_S=30      # deadline from job created_at
+LLM_TIMEOUT_SUMMARY_S=300        # wall-clock; the summary has no spec deadline
 LLM_MAX_TOKENS_ANSWER=220        LLM_MAX_TOKENS_SUMMARY=320
 STT_PROVIDER=whispercpp_http     STT_BASE_URL=http://127.0.0.1:8081
 STT_MODEL=small                  STT_TIMEOUT_S=20        MAX_AUDIO_S=32
@@ -416,8 +436,9 @@ A question flows through four deterministic stages before any generation:
      into a summary of its last week.
    - Both record `journal_entries_considered`, `journal_entries_used` and `journal_truncated` in
      `facts`. When `journal_truncated` is true the prompt requires the text to say it read part of
-     the period's writing, and the client can surface the two counts. A confidently partial answer
-     that does not admit it is partial is the failure mode here.
+     the period's writing, and the client **must** surface the two counts (client-side contract) —
+     a confidently partial answer that does not admit it is partial is the failure mode here, and
+     an obligation stated in one section and offered as an option in another is not a mechanism.
 3. **Insufficiency pre-check** — no expenses and no entries in range → return `insufficient_data`
    without calling the model at all (11.3, and it is instant).
 4. **NumericGuard** — after generation, every numeric token in the output must appear in the fact
@@ -459,10 +480,20 @@ offers to cancel the running one. That is the only condition under which `busy` 
 the job up — never a wait behind another question.
 
 **11.12's clock starts at request receipt**, not at generation start, and the server enforces it
-from `insight_jobs.created_at`. `LLM_TIMEOUT_S=110` leaves ten seconds for arbitration and the
-response, so the 120 s bound holds end-to-end rather than nominally. Measuring from generation
-start would let the user wait indefinitely while the criterion still passed, which is the kind of
-compliance that fails a user.
+from `insight_jobs.created_at`. Measuring from generation start would let the user wait
+indefinitely while the criterion still passed, which is the kind of compliance that fails a user.
+
+**Because the clock starts there, the answer budget is a deadline, not a duration.** A question's
+generation must finish by `created_at + LLM_DEADLINE_ANSWER_S (110 s)`, and time spent waiting in
+the arbiter is subtracted from it rather than added to it. Two rules follow, and they are what
+close the arithmetic hole a flat 110 s timeout left open:
+
+- The arbiter never starts generation it cannot finish. If the remaining budget when a job reaches
+  the front is below **30 s** — the floor for a useful answer at the measured rates — the job
+  terminates immediately with `llm_timeout` rather than starting a doomed generation.
+- The worst case is therefore bounded at 110 s of *elapsed* time whatever the job waited behind,
+  leaving ten seconds for the response. A question queued behind a 13.6 s transcription gets 96 s,
+  not 110 s on top of 13.6.
 
 Rejected: **SSE or WebSocket token streaming.** More elegant on a desk, worse on a phone: a
 long-lived connection over mobile data drops, and worse, a dropped connection loses the job.
@@ -472,8 +503,24 @@ and re-attach to a job that is still running (13.3). That is not possible with a
 ### KD-12. The periodic summary is produced by an in-process scheduler with catch-up on boot
 
 An asyncio task inside the API process ticks every 15 minutes and on startup. Each tick computes
-the set of *completed calendar months* between the first recorded data and last month, finds any
-without a `summaries` row, and enqueues generation (A19, A20, 11.14).
+the set of *completed calendar months* between the first recorded data and last month, and enqueues
+generation for any that lack a finished summary (A19, A20, 11.14).
+
+**"Lacks a finished summary" is the scan predicate, not "has no row."** Keying on row absence
+leaves two months permanently unsummarised, and preemption made both routine rather than rare. A
+completed month needs generation when it has **no row**, or a row with `status = 'failed'` and
+`attempts < 3`:
+
+- **A cancelled summary deletes its row.** Preemption by interactive work is now the normal
+  interruption, and it is not a failure — deleting the row returns the month to the row-absent
+  state the scan already handles, and it burns no retry attempt.
+- **Startup deletes orphaned `generating` rows.** The arbiter is in-process, so nothing can still
+  be generating across a restart; a row left at `generating` by a crash is indistinguishable from
+  a cancellation and is treated identically. This is what stops `/latest` reporting "currently
+  being produced" forever about work that stopped days ago — reporting progress that is not
+  happening is worse than reporting failure (constraint 27).
+- **Real failures retry up to three times**, tracked by `attempts` and `last_attempt_at` on the
+  row. After the third, the row stays `failed`, `/latest` reports it honestly, and nothing loops.
 
 **If the PC was asleep or off across a month boundary**, the boot scan finds the gap and generates
 it in the background. Meanwhile 11.15 still holds, because the *previous* completed summary is a
@@ -484,14 +531,36 @@ has ever been produced, the endpoint returns an explicit `none` state (11.16).
 correction that makes 11.17 true rather than asserted. A single arbiter in the API process governs
 *all* local inference — the LLM and whisper — in two priority classes:
 
-- **Interactive**: voice transcription, on-demand insight questions. Never waits behind background
-  work.
+- **Interactive**: voice transcription, on-demand insight questions, category assist. Never waits
+  behind background work.
 - **Background**: monthly summary generation. Runs only when nothing interactive is active.
 
 When an interactive job arrives, any in-flight **background** job is cancelled immediately and
 re-queued from scratch; the interactive job starts without waiting for it to finish. Summaries are
 monthly, restartable, and read by nobody at the moment they run, so throwing away partial work
 costs nothing a user can perceive.
+
+**Interactive is itself ordered, because three things live in it.** Priority runs
+**transcription > question > category assist**, and each pair has one stated outcome:
+
+- **Transcription never waits, and preempts a running question.** 11.4 requires capture to keep
+  working normally while insights are loading, and voice capture *is* capture — a transcription
+  queued behind a 110-second answer would fail that, and the client's 28-second clock would fire a
+  `transcription_timeout` for work never attempted. The preempted question terminates with an
+  explicit `preempted` failure, which is a legitimate 11.12 outcome ("an answer **or an explicit
+  failure**"), not a silent loss. It is not restarted automatically; the user re-asks.
+- **A question waits for a running transcription** — at most the 20 s sidecar timeout, measured
+  6.4-13.6 s — and that wait is subtracted from its 110 s deadline rather than added to it (KD-11).
+  Transcription is short and bounded; preempting it to start a 76-second answer would trade a
+  guaranteed small wait for a broken 8.8.
+- **Category assist yields to everything.** Its 6-second cap runs from request receipt, so waiting
+  simply produces the `null` result it is already designed to produce (KD-8 Layer 2). It never
+  preempts and is never preempted — it is abandoned.
+- **Two jobs of the same kind cannot arise.** `409 busy` already prevents a second question, and
+  there is one capture session at a time.
+
+This ordering is fixed, not deferred. Two implementers could not otherwise guess the same answer,
+and the frontend's timeout handling depends on which one holds.
 
 **Why this is not optional.** The earlier design serialized LLM against LLM only, which left
 whisper and Ollama competing for the same 8 cores. Voice expense capture *is* expense capture, so
@@ -672,7 +741,7 @@ backend env var so the frontend implementer never needs to touch backend code, a
 | `parsing/` | Spanish numeral grammar, amount extraction, alias matching for categories and payment methods. Pure functions, no I/O, no model. |
 | `providers/` | `LLMProvider` and `TranscriptionProvider` interfaces plus the `openai_compatible` and `whispercpp_http` adapters. **The only place vendor names appear.** |
 | `insights/` | QuestionRouter, FactBuilder, PromptBuilder, NumericGuard, job runner. |
-| `arbiter/` | The InferenceArbiter (KD-12): two priority classes over both sidecars, background preemption, the 60-second quiet period. Every call into `providers/` passes through it. |
+| `arbiter/` | The InferenceArbiter (KD-12): two priority classes over both sidecars, the interactive ordering transcription > question > category assist, background preemption, the 60-second quiet period, and the answer deadline derived from `created_at`. Every call into `providers/` passes through it. |
 | `scheduler/` | Boot catch-up scan, 15-minute tick, monthly summary enqueue, nightly DB snapshot. |
 | `clock/` | Local-day and local-month arithmetic in `APP_TZ`. The **only** place calendar boundaries are computed (4.8). |
 
@@ -728,10 +797,12 @@ Seven tables plus two alias tables. Full DDL is the backend implementer's; the s
   offset)`, `source`, `created_at`, `updated_at`. Separate rows always; nothing merges (6.3).
 - **`summaries`** — `id`, `period_kind ('month')`, `period_key ('YYYY-MM')` UNIQUE, `status
   ('generating'|'ready'|'empty'|'failed')`, `text`, `facts_json`, `model`, `generated_at`,
-  `created_at`. There is no `pending` status: a month that should have a summary and has no row
-  *is* pending, which is what the scheduler's catch-up scan looks for. On the wire, `status:
-  "none"` from `/latest` means "no row exists at all" and is the only response state without a
-  corresponding row.
+  `attempts INTEGER NOT NULL DEFAULT 0`, `last_attempt_at`, `created_at`. There is no `pending`
+  status: a month that should have a summary and has no row *is* pending, which is what the
+  scheduler's catch-up scan looks for. A cancelled or crash-orphaned run **deletes** its row rather
+  than leaving it at `generating`, returning the month to that pending state; only genuine failures
+  persist, and only three times (KD-12). On the wire, `status: "none"` from `/latest` means "no row
+  exists at all" and is the only response state without a corresponding row.
 - **`insight_jobs`** — `id (uuid)`, `question`, `status ('queued'|'running'|'done'|'failed'|
   'cancelled')`, `partial_answer`, `answer`, `facts_json`, `error_code`, `created_at`,
   `started_at`, `finished_at`. Persisted so a job survives a page reload (13.3).
@@ -784,7 +855,8 @@ whose values are a closed vocabulary the frontend maps directly.
 **Closed error-code set** — the frontend maps all of these to Spanish copy:
 `validation` · `not_found` · `conflict` · `in_use` · `audio_invalid` · `audio_too_long` ·
 `transcription_failed` · `transcription_timeout` · `llm_unavailable` · `llm_timeout` ·
-`insufficient_data` · `unverifiable_figures` · `period_unrecognised` · `busy` · `internal`.
+`insufficient_data` · `unverifiable_figures` · `period_unrecognised` · `preempted` · `busy` ·
+`internal`.
 
 **Field `reason` values** for `validation`: `required` · `must_be_positive` · `not_an_integer` ·
 `too_long` · `future_date` · `blank` · `unknown_id` · `duplicate_name`.
@@ -936,7 +1008,7 @@ whose values are a closed vocabulary the frontend maps directly.
                         "journal_truncated": bool }|null,
              "error_code": string|null, "created_at": iso8601, "finished_at": iso8601|null }`
 - errors:   `404 not_found`
-- notes:    poll at ~1 s. `elapsed_ms` and `partial_answer` both change over time, so the UI has genuine progress rather than a static spinner. Terminal `error_code` values: `insufficient_data` (too little recorded data to say anything), `period_unrecognised` (the question names a period the router cannot resolve — answering about a different period would be exactly the fabrication 11.11 forbids), `unverifiable_figures` (a figure was produced that the recorded data does not support — surfaced as "cannot answer", never as a fabricated number), `llm_timeout` (hard stop at 120 s from `created_at`), `llm_unavailable`. `period_assumed` is true when the question named no period and the current month was used, so the client can label what it answered about. `journal_truncated` with the two counts tells the client the context was cut, which the answer text is also required to admit. `answer` being Spanish and free of outside facts (11.7, 11.1) is **prompt-enforced, not guarded** — see the end of KD-10.
+- notes:    poll at ~1 s. `elapsed_ms` and `partial_answer` both change over time, so the UI has genuine progress rather than a static spinner. Terminal `error_code` values: `insufficient_data` (too little recorded data to say anything), `period_unrecognised` (the question names a period the router cannot resolve — answering about a different period would be exactly the fabrication 11.11 forbids), `unverifiable_figures` (a figure was produced that the recorded data does not support — surfaced as "cannot answer", never as a fabricated number), `llm_timeout` (the 110 s deadline from `created_at` elapsed, or too little of it remained to start), `preempted` (a voice capture took priority — KD-12; the job is not restarted automatically and the client should invite re-asking), `llm_unavailable`. `period_assumed` is true when the question named no period and the current month was used, so the client can label what it answered about. `journal_truncated` with the two counts says the context was cut; the client **must** surface it and the answer text is also required to admit it. `answer` being Spanish and free of outside facts (11.7, 11.1) is **prompt-enforced, not guarded** — see the end of KD-10.
 - requirements: 11.1, 11.2, 11.3, 11.5, 11.7, 11.8, 11.9, 11.11, 11.12
 
 ### DELETE /api/insights/questions/{job_id}
@@ -979,9 +1051,19 @@ across the whole design, not only across the HTTP surface.
   `message` field is ever rendered. `requirements: 1.5`
 - **Amount input and display** — one parser accepting `14.000` / `14000` / `14 000` → `14000`; one
   formatter emitting `$14.000` everywhere an amount appears. `requirements: 2.4, 2.5`
-- **Four-interaction capture budget** — from the default screen, a complete expense saves in ≤4
-  taps beyond typing the amount (category, payment method, save — date defaults to today).
-  `requirements: 2.8`
+- **Four-interaction capture budget, and the control pattern that makes it reachable** — from the
+  default screen the sequence is: open the manual form (1), type the amount, choose a category (2),
+  choose a payment method (3), save (4). Exactly four, with **zero slack**, so the pattern is
+  prescribed rather than left to discovery: category and payment method are **inline single-tap
+  chips**, laid out as wrapping rows inside the form. A native `<select>`, a modal picker, or a
+  bottom sheet is two interactions each (open, then choose), which makes the total six and fails a
+  pass/fail criterion — this is the obvious way to build the form and it is the wrong one.
+  The chips must fit ten seeded categories and six payment methods at ≥44×44 px inside a 390 px
+  viewport with no horizontal scrolling (constraints 7, 10); wrapping rows with vertical scroll is
+  how that resolves. The "create new" affordance (3.2) is an extra chip opening an inline field —
+  it is outside the four, being the exceptional path, not the daily one. If an implementer needs
+  slack, the one interaction available to reclaim is the form-opening tap: putting the amount field
+  directly on the default screen removes it. `requirements: 2.8, 3.2`
 - **Destructive confirmation** — expense and journal deletion each present a confirmation step
   before the `DELETE` call. `requirements: 5.2`
 - **Voice capture UI** — unmistakable "listening now" state distinct from idle, with stop and
@@ -997,6 +1079,12 @@ across the whole design, not only across the HTTP surface.
   no server progress channel; both visibly change rather than spinning. Waits over ~10 s offer
   cancel and say the work is happening on the user's own computer; nothing implies an instant AI
   response. `requirements: 8.8, 11.5, 11.12, 11.13`
+- **Partial answers say they are partial** — when `facts.journal_truncated` is true the client
+  **must** surface it alongside the answer, using `journal_entries_used` and
+  `journal_entries_considered`. This is an obligation, not an option: the prompt is required to make
+  the text admit partiality, and this is the only non-prompt mechanism against a confidently
+  partial answer. How it is shown is the frontend's craft; whether it is shown is not.
+  `requirements: 11.9, 11.11`
 - **Reachability** — a designed "no puedo alcanzar tu servidor" state in plain language, which
   **renders on a cold open** because the service worker has the shell cached; automatic recovery
   when the server returns, with nothing lost and no reinstall; a failed save keeps the typed text
@@ -1156,7 +1244,9 @@ Left to the Implementers, inside the structural bounds above.
 - Job and summary retention (nothing prunes user records; job rows are not user records).
 - Whether the nightly snapshot runs in the scheduler task or a systemd timer.
 - How the InferenceArbiter signals cancellation to each sidecar (request abort, or a provider-level
-  cancel token) — the priority rules and the 60-second quiet period are fixed; the plumbing is not.
+  cancel token) — the priority rules, the interactive ordering, the 60-second quiet period and the
+  answer deadline are all fixed; only the plumbing is not.
+- Retry backoff shape for a `failed` summary within the three-attempt limit.
 
 **Frontend**
 - Component decomposition, the typeface (open licence, self-hosted), spacing and type scale, and
@@ -1167,7 +1257,11 @@ Left to the Implementers, inside the structural bounds above.
 - The web-app manifest's icon and name, and the Spanish labels for the two home-screen entries.
 - The service-worker toolchain (`vite-plugin-pwa` or a hand-written worker) — its *scope* is fixed
   in KD-13 and may not widen.
-- The phase labels shown during transcription, and how `journal_truncated` is surfaced.
+- The phase labels shown during transcription, and *how* `journal_truncated` is surfaced — *that*
+  it is surfaced is an obligation in the client-side contract, not a choice.
+- Chip layout, wrapping and ordering within the prescribed inline-chip pattern for category and
+  payment method — the pattern itself is fixed by 2.8's zero-slack budget and may not be traded for
+  a `<select>`, modal or bottom sheet.
 
 **Resolved before finalising, and how**
 - *Non-HTTPS private-network origins block `getUserMedia`, which would have killed voice on the
@@ -1226,6 +1320,26 @@ Left to the Implementers, inside the structural bounds above.
   the RAM denominator is **5.3 GiB**, not 6.7 GB.
 - `whisper-cli --no-translate` **does not exist** in the current build. KD-5 now specifies `-l es`
   alone, which is what 8.7 needs.
+
+**Resolved in revision 3, after artifact analysis pass 2**
+- *Two interactive jobs contending.* The arbiter's classes covered interactive-versus-background
+  only. Resolved by ordering interactive itself — transcription > question > category assist — with
+  a stated outcome for each pair, and by making the answer budget a **deadline from `created_at`**
+  so queueing subtracts from it. That closes the 116-130 s arithmetic a flat 110 s timeout allowed
+  against 11.12's 120 s (KD-11, KD-12). Adds the terminal code `preempted`.
+- *Summaries that fail or are orphaned are never retried.* Resolved by changing the catch-up scan
+  predicate from "no row" to "no finished summary", deleting rows on cancellation and on startup
+  sweep, and retrying genuine failures three times (KD-12). The preemption added in revision 2 made
+  mid-flight interruption routine, which is what turned this from latent into likely.
+- *One timeout for two workloads.* Resolved by splitting it: questions keep the 110 s deadline;
+  summaries get `LLM_TIMEOUT_SUMMARY_S=300`, because the summary has no deadline in the spec and
+  the tight value only manufactured permanent `failed` rows (KD-6, KD-7).
+- *2.8's four-tap budget asserted rather than designed.* Resolved by prescribing inline single-tap
+  chips and naming the three patterns that break it, with the viewport and touch-target constraints
+  that follow and the one interaction available to reclaim as slack (client-side contract).
+- *`journal_truncated` capability versus obligation.* Resolved as an obligation.
+- *GiB/GB mixed in the memory subtraction.* Corrected to ~2.28 GB of headroom, with the units
+  stated and the pre-load nature of the reading noted so the table checks itself.
 
 **Open for verification, not blocking**
 - *Which phone OS David uses.* The design covers Android Chrome and iOS Safari; confirming it lets
