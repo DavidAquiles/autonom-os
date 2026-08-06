@@ -134,8 +134,8 @@
       "spawned_at": "2026-08-06T00:52:13+00:00"
     },
     "frontend": {
-      "id": "af6f8fdf9d320da81",
-      "status": "dead",
+      "id": "afd21daa27e21f576",
+      "status": "spawned",
       "spawned_at": "2026-08-06T00:52:14+00:00"
     }
   },
@@ -207,7 +207,12 @@
       "stage": "implement",
       "at": "2026-08-06T02:24:25+00:00",
       "note": "frontend: dead"
+    },
+    {
+      "stage": "implement",
+      "at": "2026-08-06T02:25:18+00:00",
+      "note": "frontend: spawned"
     }
   ],
-  "updated_at": "2026-08-06T02:24:25+00:00"
+  "updated_at": "2026-08-06T02:25:18+00:00"
 }
