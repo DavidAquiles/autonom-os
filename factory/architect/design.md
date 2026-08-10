@@ -275,7 +275,7 @@ and their routes are untouched, and so are `day_summary` and `month_summary`,
 which both call `list_expenses` — so its signature change must keep every existing
 call working (`repo/expenses.py:272`).
 
-### Frontend — three new screens, four existing files change
+### Frontend — two new screens, one moved component, eight changed files
 
 New:
 
@@ -745,22 +745,39 @@ as `test/server.ts:73` does.
 - `finanzas-historial` — `/finanzas/historial`, live. Carries constraints 29 (four
   tabs, no truncation — this is R2's measurement), 30 (row treatment against
   `finanzas-hoy`), 31 (the ordering statement above the first row), 33 (flat list)
-  and 34 (nothing else operable).
+  and 34 (nothing else operable). **It also carries constraint 32's *absent*
+  state**, because the seeder writes 12 expenses in total — 4 for today
+  (`seed.mjs:33-38`) and 8 for the month (`:51-60`) — against a page size of 30, so
+  a live Historial is one short page with `next_before_id: null` and no control.
 - `finanzas-historial--desplazado` — same, `scroll: 520`, following the
   `finanzas-mes--desplazado` precedent (`:126`). This is where a date heading or a
   day separator would show up if one crept in (constraint 33).
-- `finanzas-historial--ver-mas` — stubbed with `next_before_id: null` on the last
-  page, to capture the **absence** of the control (constraint 32 requires both
-  states to be "distinguishable on sight", so both must be photographed; the
-  live shot above supplies the present state).
+- `finanzas-historial--ver-mas` — **stubbed with a full page of items and an integer
+  `next_before_id`**, to capture the control **present**. Constraint 32 requires the
+  two states to be "distinguishable on sight", which means both must be
+  photographed, and the live matrix can only ever produce the empty-cursor half at
+  the current seed volume. Stubbing the *present* state rather than the absent one
+  is the way round that actually adds evidence.
+  *Dependency worth knowing:* if the seeder ever grows past a page, the live shot
+  flips to the other state and constraint 32 loses its absent half. Whichever of
+  the two the live data cannot produce is the one that must be stubbed — check
+  before assuming.
 - `finanzas-historial-vacio` — stubbed `{items: [], total_count: 0, next_before_id: null}`
-  (constraint 42, 16.10).
+  (constraint 42, 16.10). Distinct from the shot above: no rows at all versus rows
+  with nothing after them.
 - `gasto-detalle` — `/finanzas/gasto/1`, live: constraints 35 (no form), 36 (journal
   read frame), 37 (two labelled dates, unclamped description), 43 (nothing reveals
   source).
 - `gasto-detalle--sin-descripcion` and `gasto-detalle--editado` — stubbed single
   expenses, one with `description: null` (17.3) and one with `updated_at` later than
   `created_at` (17.5, constraint 38's neutrality).
+- `gasto-detalle--descripcion-larga` — a third stub in the same form, carrying a
+  description of several hundred characters (the field allows 1000,
+  `repo/expenses.py:16`). Without it **nothing in the matrix can fail constraint
+  37's "shown in full, unclamped, no 'seguir leyendo'"**: the live shot runs against
+  `seed.mjs:34`'s "Café y pan" and the `--sin-descripcion` stub has none at all, so
+  a `line-clamp` or a truncation affordance would be invisible in every capture. A
+  constraint whose violation cannot appear in any photograph is not being checked.
 - `finanzas-mes--categoria` — `/finanzas/mes?categoria=1`: constraints 39 (tappable
   category row against non-tappable payment row), 40 (both totals distinguishable),
   41 (the clear control visible without scrolling).
