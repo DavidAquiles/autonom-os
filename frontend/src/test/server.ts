@@ -88,6 +88,12 @@ export function installApi(overrides: Record<string, Route> = {}) {
     calls.push({ method, path, body })
     const route = routes[`${method} ${bare}`]
     const payload = typeof route === 'function' ? route({ path, method, body }) : route
+    // A route may answer with a `Response` of its own when the status matters —
+    // the 400 the server sends for a malformed `category_id` is one the UI has
+    // to tell apart from an empty list (QA D2). A route that THROWS models the
+    // other half: a request that never reaches the server while the server is
+    // up, which is how QA reproduced D2 and D3.
+    if (payload instanceof Response) return payload
     if (payload === undefined) {
       return new Response(
         JSON.stringify({ error: { code: 'not_found', message: `no stub for ${method} ${bare}` } }),

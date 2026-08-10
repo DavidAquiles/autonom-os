@@ -308,6 +308,15 @@ export const servidor = {
   guardarFalloTitulo: 'No pude guardar: no alcanzo tu servidor.',
   guardarFalloCuerpo:
     'Nada se perdió. Lo que escribiste sigue aquí tal como está; vuelve a intentarlo cuando el computador esté despierto.',
+  // QA D2/D3: ONE request failing while the server itself keeps answering. This
+  // is deliberately not 16.10's or 18.10's copy: those state a fact about the
+  // data ("no has anotado nada", "ya no queda nada en Transporte"), and a
+  // request that failed knows nothing about the data. It is not the unreachable
+  // banner either — `ListFailure` renders nothing when the server is out of
+  // reach, so the first sentence is true whenever this is on screen.
+  listaFalloTitulo: 'No pude cargar esta lista.',
+  listaFalloCuerpo:
+    'Tu servidor está respondiendo, pero esta lista no llegó. Lo que anotaste sigue guardado.',
 } as const
 
 /**

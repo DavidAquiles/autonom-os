@@ -85,6 +85,30 @@ function GastoForm({ mode, expenseId }: { mode: 'nuevo' | 'editar'; expenseId?: 
     else navigate(`/finanzas/gasto/${expenseId}`, { replace: true })
   }
 
+  /*
+   * 17.9 / QA D1(a). The design's push/pop table states the stack after
+   * `editar → delete` as **`[lista]`**, while its mechanism column says
+   * "replace, to estado.desde". The two do not agree: replacing at
+   * `[lista, detalle, editar]` yields `[lista, detalle, lista']`, so ONE Back
+   * tap lands on the detail of the record just deleted — QA reproduced exactly
+   * that, and found a live edit action on it. The table's STATED STACK is what
+   * this implements: pop past both the form and the detail, which also returns
+   * the user to the very location entry the row was tapped from, carrying its
+   * `?mes=`, `?categoria=` and recorded offset (17.8, 18.9) rather than a fresh
+   * copy of the same URL. `desde` stays as the fallback for the one case with
+   * no entries behind it — a hand-typed `…/editar`, which no affordance
+   * produces. (Architect: the mechanism column needs correcting to "pop ×2".)
+   *
+   * The browser keeps the popped entries reachable by FORWARD, which no History
+   * API can erase. That is why D1(b) — a not-found detail replacing the record
+   * instead of rendering above it — is fixed too, and not instead.
+   */
+  const hayLista = (location.state as { hayLista?: boolean } | null)?.hayLista ?? false
+  const afterDelete = () => {
+    if (canPop && hayLista) navigate(-2)
+    else navigate(desde, { replace: true })
+  }
+
   const health = useHealth()
   const today = health.data?.server_time.slice(0, 10)
   const categories = useCategories()
@@ -463,9 +487,9 @@ function GastoForm({ mode, expenseId }: { mode: 'nuevo' | 'editar'; expenseId?: 
                 onClick={() =>
                   remove.mutate(existing.data!.id, {
                     // 17.9: never leave the user on the detail of a record that
-                    // no longer exists — replace straight to the list this
-                    // expense was opened from, with its month and selection.
-                    onSuccess: () => navigate(desde, { replace: true }),
+                    // no longer exists, and never leave it one Back tap away
+                    // either — see `afterDelete` above.
+                    onSuccess: afterDelete,
                   })
                 }
               >

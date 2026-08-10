@@ -24,7 +24,19 @@ import { AUDIT_JS } from './audit.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const OUT = resolve(HERE, 'shots')
 const PROFILE = resolve(HERE, 'out/chrome-profile')
-const BASE = process.argv[2] ?? 'http://127.0.0.1:8001'
+const ARGS = process.argv.slice(2)
+const BASE = ARGS.find((a) => a.startsWith('http')) ?? 'http://127.0.0.1:8001'
+/*
+ * `--only <regex>` renders a subset by name. It exists because the full matrix
+ * is not always the right thing to run: `gasto-guardando` writes a real expense
+ * through the real form, so a rework pass that only needs to re-photograph a
+ * handful of states can do it without that recipe reaching a database.
+ */
+const ONLY = (() => {
+  const i = ARGS.indexOf('--only')
+  return i === -1 ? null : new RegExp(ARGS[i + 1])
+})()
+const chosen = (list) => (ONLY ? list.filter((s) => ONLY.test(s.name)) : list)
 
 /* ------------------------------------------------------------ stub payloads */
 
@@ -135,6 +147,13 @@ const HISTORIAL_HAY_MAS = {
 }
 
 const HISTORIAL_VACIO = { items: [], total_count: 0, next_before_id: null }
+
+/*
+ * QA rework: ONE request failing while the server itself keeps answering. The
+ * status matters — this is not the server being out of reach, and the app must
+ * not say it is.
+ */
+const FALLO_500 = { status: 500, body: { error: { code: 'internal', message: 'boom' } } }
 
 const LARGA =
   'Mercado grande del mes en la plaza de Paloquemao, con Ana. Fuimos temprano porque después se ' +
@@ -893,6 +912,170 @@ const SHOTS = [
   },
   { name: 'finanzas-hoy--900', url: '/finanzas', width: 900, height: 900 },
   { name: 'diario--900', url: '/diario', width: 900, height: 900 },
+
+  /* --------------------------------------------------- the QA rework, cycle 1
+   *
+   * D1, D2 and D3 all lived in states no shot asked for: what a screen does
+   * when its request FAILS while the server is up, and what is behind the Back
+   * button after a delete. 132 captures and 70 tests passed over them. These
+   * are the states, photographed.
+   *
+   * Run these against a SCRATCH database — `qa-d1-*` deletes a real expense:
+   *   node tools/shots.mjs http://127.0.0.1:8011 --only qa-d
+   */
+  {
+    // D3. This rendered an entirely empty <main> — no rows, no ordering line,
+    // no message, no control — while /api/health kept answering.
+    name: 'qa-d3-historial-lista-falla',
+    url: '/finanzas/historial',
+    stubs: { '/api/expenses': FALLO_500 },
+    before: [{ wait: 2500 }],
+  },
+  {
+    name: 'qa-d3-historial-lista-falla--reintentar-hover',
+    url: '/finanzas/historial',
+    stubs: { '/api/expenses': FALLO_500 },
+    before: [{ wait: 2500 }],
+    forceText: [['Reintentar', ['hover']]],
+  },
+  {
+    name: 'qa-d3-historial-lista-falla--reintentar-foco',
+    url: '/finanzas/historial',
+    stubs: { '/api/expenses': FALLO_500 },
+    before: [{ wait: 2500 }],
+    forceText: [['Reintentar', ['focus', 'focus-visible']]],
+  },
+  {
+    name: 'qa-d3-historial-lista-falla--reintentar-pulsado',
+    url: '/finanzas/historial',
+    stubs: { '/api/expenses': FALLO_500 },
+    before: [{ wait: 2500 }],
+    forceText: [['Reintentar', ['hover', 'active']]],
+  },
+  {
+    /*
+     * The shape the approved mockup drew (`mockups/shots/historial--sin-servidor.png`):
+     * the banner over rows that DID arrive. The list loads live, the tab is left
+     * and re-entered, and the refetch is what fails — which is also the only
+     * state in which the retry can be disabled, because a query with no data at
+     * all goes back to `pending` on refetch and shows the skeleton instead.
+     */
+    name: 'qa-d3-historial-lista-falla--sobre-filas',
+    url: '/finanzas/historial',
+    stubs: { '/api/expenses': FALLO_500 },
+    stubFrom: 2,
+    before: [
+      { wait: 1200 },
+      { clickText: 'Hoy' },
+      { wait: 1200 },
+      { clickText: 'Historial' },
+      { wait: 2500 },
+    ],
+  },
+  {
+    // The disabled half, where contrast minimums are usually missed. Requests:
+    // 1 live, 2 and 3 the failed refetch and its `retry: 1`, 4 the user's own
+    // tap — held open, which is what puts the control in its in-flight state.
+    name: 'qa-d3-historial-lista-falla--reintentando',
+    url: '/finanzas/historial',
+    stubs: { '/api/expenses': FALLO_500 },
+    stubFrom: 2,
+    slowFrom: { '/api/expenses': 4 },
+    before: [
+      { wait: 1200 },
+      { clickText: 'Hoy' },
+      { wait: 1200 },
+      { clickText: 'Historial' },
+      { wait: 2500 },
+      { clickText: 'Reintentar' },
+      { wait: 600 },
+    ],
+  },
+  {
+    // With nothing cached, a retry has no rows to keep on screen, so the query
+    // goes back to pending and the screen says so. Photographed because it is
+    // what the user actually sees after tapping Reintentar on an empty screen.
+    name: 'qa-d3-historial-lista-falla--reintentando-sin-filas',
+    url: '/finanzas/historial',
+    stubs: { '/api/expenses': FALLO_500 },
+    slowFrom: { '/api/expenses': 3 },
+    before: [{ wait: 2500 }, { clickText: 'Reintentar' }, { wait: 600 }],
+  },
+  {
+    name: 'qa-d3-historial-lista-falla--320',
+    url: '/finanzas/historial',
+    width: 320,
+    stubs: { '/api/expenses': FALLO_500 },
+    before: [{ wait: 2500 }],
+  },
+  {
+    // D2. The same failure on the opened category, where it used to render
+    // 18.10's "ya no queda nada en …" — a false claim about the data, sitting
+    // under a month total that contradicted it.
+    name: 'qa-d2-mes-categoria-lista-falla',
+    url: '/finanzas/mes?categoria=2',
+    stubs: { '/api/expenses': FALLO_500 },
+    before: [{ wait: 2500 }],
+  },
+  {
+    // D2's zero-tooling trigger, live: the server really answers 400 here.
+    name: 'qa-d2-mes-categoria-cero',
+    url: '/finanzas/mes?categoria=0',
+    before: [{ wait: 2500 }],
+  },
+  {
+    // The claim that must SURVIVE the fix: a category the server really did
+    // return empty still says so. Live, against a category with nothing in it.
+    name: 'qa-d2-mes-categoria-vacia-de-verdad',
+    url: '/finanzas/mes?categoria=8',
+    stubs: { '/api/expenses': { items: [], total_count: 0, next_before_id: null } },
+    before: [{ wait: 1200 }],
+  },
+  {
+    // D1(a), the whole gesture: open a row, delete it, then press Back. The
+    // stack must be [lista], so this is the list — not the dead detail.
+    // DELETES A REAL EXPENSE from whatever database is behind the server.
+    name: 'qa-d1-atras-tras-eliminar',
+    // Entered through the tab rather than directly, so there IS a screen behind
+    // the list: with the stack at [Hoy, Historial], Back lands on Hoy. Opening
+    // the list as the first entry makes the same Back leave the app, which
+    // proves the fix but photographs a blank browser page.
+    url: '/finanzas',
+    before: [
+      { clickText: 'Historial' },
+      { wait: 1200 },
+      { clickSelector: 'main ul li a' },
+      { wait: 900 },
+      { clickText: 'Editar gasto' },
+      { wait: 900 },
+      { clickText: 'Eliminar gasto' },
+      { wait: 500 },
+      { clickText: 'Eliminar' },
+      { wait: 1400 },
+      { eval: 'history.back(); true' },
+      { wait: 1400 },
+    ],
+  },
+  {
+    // D1(b). Popping cannot erase the FORWARD entries — no History API can — so
+    // the dead detail is still reachable that way, and this is what it must
+    // look like: the message, alone. Not the record with the message on top of
+    // it, and not an "Editar gasto" that opens a form onto a deleted row.
+    name: 'qa-d1-adelante-gasto-borrado',
+    url: '/finanzas/historial',
+    before: [
+      { clickSelector: 'main ul li a' },
+      { wait: 900 },
+      { clickText: 'Editar gasto' },
+      { wait: 900 },
+      { clickText: 'Eliminar gasto' },
+      { wait: 500 },
+      { clickText: 'Eliminar' },
+      { wait: 1400 },
+      { eval: 'history.forward(); true' },
+      { wait: 2500 },
+    ],
+  },
 ]
 
 /* --- voice shots need a fake microphone, so they run in a second browser --- */
@@ -1118,6 +1301,11 @@ const b64 = (s) => Buffer.from(s, 'utf8').toString('base64')
 async function applyStubs(browser, sessionId, send, shot) {
   const patterns = [{ urlPattern: '*/api/*', requestStage: 'Request' }]
   await send('Fetch.enable', { patterns })
+  // `slowFrom: { '/api/expenses': 3 }` — hang that path from its third request
+  // onward. It is how an in-flight retry gets photographed: the failed load and
+  // its one retry (main.tsx `retry: 1`) answer normally, and the request the
+  // user's own tap makes is the one held open.
+  const seen = new Map()
 
   const handler = async (params, sid) => {
     if (sid !== sessionId) return
@@ -1125,12 +1313,31 @@ async function applyStubs(browser, sessionId, send, shot) {
     const path = new URL(request.url).pathname
     const key = `${request.method} ${path}`
 
+    for (const [prefix, from] of Object.entries(shot.slowFrom ?? {})) {
+      if (!path.startsWith(prefix)) continue
+      const n = (seen.get(prefix) ?? 0) + 1
+      seen.set(prefix, n)
+      if (n >= from) {
+        await new Promise((r) => setTimeout(r, 30_000))
+        return
+      }
+    }
+
     if (shot.killApi) {
       await send('Fetch.failRequest', { requestId, errorReason: 'ConnectionRefused' }).catch(() => {})
       return
     }
 
     let stub = shot.stubs?.[key] ?? shot.stubs?.[path]
+    // `stubFrom: 2` — let the FIRST request through to the real server and stub
+    // it only from the second onward. That is the only way to photograph a
+    // screen that has good data and then loses the server: the states where a
+    // failure lands on top of what is already on screen.
+    if (stub && shot.stubFrom) {
+      const n = (seen.get(`stub:${path}`) ?? 0) + 1
+      seen.set(`stub:${path}`, n)
+      if (n < shot.stubFrom) stub = null
+    }
     if (!stub && shot.stubs) {
       for (const [k, v] of Object.entries(shot.stubs)) {
         const bare = k.includes(' ') ? k.split(' ')[1] : k
@@ -1342,7 +1549,7 @@ async function main() {
   const results = []
 
   const plain = await launch({ port: 9222, profileDir: resolve(PROFILE, 'plain') })
-  for (const shot of SHOTS) {
+  for (const shot of chosen(SHOTS)) {
     try {
       const r = await shoot(plain.browser, shot)
       results.push(r)
@@ -1365,7 +1572,7 @@ async function main() {
   plain.proc.kill()
 
   const mic = await launch({ port: 9223, profileDir: resolve(PROFILE, 'mic'), fakeMedia: true })
-  for (const shot of VOICE_SHOTS) {
+  for (const shot of chosen(VOICE_SHOTS)) {
     try {
       const r = await shoot(mic.browser, shot)
       results.push(r)
@@ -1386,7 +1593,10 @@ async function main() {
   mic.browser.close()
   mic.proc.kill()
 
-  await writeFile(resolve(OUT, 'audit.json'), JSON.stringify(results, null, 2))
+  // A filtered run must not overwrite the full matrix's report with a partial
+  // one that reads like the whole thing.
+  const report = ONLY ? `audit-parcial.json` : 'audit.json'
+  await writeFile(resolve(OUT, report), JSON.stringify(results, null, 2))
 
   const bad = results.filter(
     (r) =>

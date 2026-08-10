@@ -26,8 +26,11 @@
   line-height: 1.5;
   color: var(--ink-soft);
 }
+/* A link or a button — a retry is an action on this screen, not a destination
+   (QA D2/D3), and both must be the same thing to look at and to focus. */
 .action {
   margin-top: 10px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -43,6 +46,13 @@
   outline: 2.5px solid var(--violet);
   outline-offset: 2px;
   border-radius: 8px;
+}
+/* Last, so it beats `.action:hover` at equal specificity: a retry already in
+   flight is not offering itself again. */
+.action:disabled {
+  color: var(--ink-soft);
+  cursor: default;
+  text-decoration: none;
 }
 
 /* A neutral banner: used where the news is about the server, not about a

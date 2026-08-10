@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useNavigate } from 'react-router-dom'
 import { App } from '../App'
 import { installApi, type Route } from './server'
 
@@ -17,10 +17,12 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function mount(initial = '/finanzas') {
-  const qc = new QueryClient({
+const cliente = () =>
+  new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
+function mount(initial = '/finanzas', qc = cliente()) {
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[initial]}>
@@ -29,6 +31,33 @@ function mount(initial = '/finanzas') {
     </QueryClientProvider>,
   )
 }
+
+/**
+ * One browser Back tap, driven from inside the router the app is mounted in —
+ * the gesture QA used to find D1, and the only one no test was making.
+ */
+function Atras() {
+  const navigate = useNavigate()
+  return (
+    <button type="button" onClick={() => navigate(-1)}>
+      atrás-de-prueba
+    </button>
+  )
+}
+
+function mountConAtras(initial = '/finanzas') {
+  return render(
+    <QueryClientProvider client={cliente()}>
+      <MemoryRouter initialEntries={[initial]}>
+        <App />
+        <Atras />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+const irAtras = (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(screen.getByRole('button', { name: 'atrás-de-prueba' }))
 
 const expense = (over: Record<string, unknown> = {}) => ({
   id: 1,
@@ -201,6 +230,77 @@ describe('criterion 17.7 — leaving the edit form returns to the detail', () =>
   })
 })
 
+/**
+ * QA D1, in two halves that were fixed separately because they fail separately.
+ * The whole path passed 70 tests and 132 screenshots while broken: every test
+ * stopped at the moment the delete landed on the list, which is exactly where
+ * criterion 17.9 stops too.
+ */
+describe('QA D1 — a deleted expense is gone, not one Back tap away', () => {
+  const vacio = { date: '2026-08-05', total_cop: 0, expense_count: 0, items: [] }
+
+  it('leaves the stack at [lista]: Back after deleting does not reach the dead detail (D1a)', async () => {
+    let vive = true
+    installApi({
+      'GET /api/summary/day': () => (vive ? dayWithOne : vacio),
+      'GET /api/expenses': () => list(vive ? [expense()] : []),
+      // What the server answers for a deleted id — QA confirmed the 404 by curl.
+      'GET /api/expenses/1': () => (vive ? expense() : undefined),
+      'DELETE /api/expenses/1': null,
+    })
+    const user = userEvent.setup()
+    mountConAtras('/finanzas')
+
+    // [lista] → [lista, detalle] → [lista, detalle, editar]
+    await user.click(await screen.findByText('Comida'))
+    await user.click(await screen.findByRole('button', { name: /Editar gasto/ }))
+    await screen.findByLabelText('Monto')
+    await user.click(screen.getByRole('button', { name: /Eliminar gasto/ }))
+    vive = false
+    await user.click(await screen.findByRole('button', { name: 'Eliminar' }))
+
+    // 17.9: on the list it was opened from.
+    await waitFor(() =>
+      expect(screen.getByText('Todavía no has anotado nada hoy.')).toBeInTheDocument(),
+    )
+
+    await irAtras(user)
+
+    // The design's push/pop table: after deleting, the stack is [lista], so
+    // there is nothing behind it to walk back into.
+    expect(screen.queryByText('Este gasto ya no existe.')).toBeNull()
+    expect(screen.queryByText('$23.500')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Editar gasto/ })).toBeNull()
+    expect(screen.getByText('Todavía no has anotado nada hoy.')).toBeInTheDocument()
+  })
+
+  it('replaces the record with the not-found state instead of rendering it underneath (D1b)', async () => {
+    let vive = true
+    installApi({ 'GET /api/expenses/1': () => (vive ? expense() : undefined) })
+    const qc = cliente()
+    mount('/finanzas/gasto/1', qc)
+
+    await screen.findByText('$23.500')
+
+    // The expense goes while its detail is on screen and its data is cached —
+    // TanStack keeps the last good `data` when the refetch fails, which is what
+    // put the whole record under "Este gasto ya no existe."
+    vive = false
+    await act(async () => {
+      await qc.invalidateQueries({ queryKey: ['expense'] })
+    })
+
+    expect(await screen.findByText('Este gasto ya no existe.')).toBeInTheDocument()
+    expect(screen.queryByText('$23.500')).toBeNull()
+    expect(screen.queryByText('Efectivo')).toBeNull()
+    expect(screen.queryByText('Almuerzo con Ana en el italiano de la 85')).toBeNull()
+    expect(screen.queryByText(/^Anotado el/)).toBeNull()
+    // The affordance that made this reachable: it opened the form pre-filled
+    // with a dead record, and saving blamed a server that was answering.
+    expect(screen.queryByRole('button', { name: /Editar gasto/ })).toBeNull()
+  })
+})
+
 describe('B2 / 18.9 — the month and the category live in the location', () => {
   it('renders the month named in the URL, not the current one', async () => {
     const { calls } = installApi({
@@ -311,6 +411,34 @@ describe('requirement 18 — one category at a time', () => {
     // zero row is what 18.10 names as the thing to avoid.
     expect(screen.queryByText('$0')).toBeNull()
     expect(screen.queryByText('0 gastos')).toBeNull()
+  })
+
+  /**
+   * QA D2. The empty-category branch caught every failure of this request, so a
+   * screen that could not load the list told the user the category had been
+   * emptied — while the month's own total, from a request that DID succeed,
+   * still sat above it. The test above ("says there is nothing left…") is the
+   * other half: the true claim must survive this fix.
+   */
+  it('says the list did not load rather than claiming the category is empty (D2)', async () => {
+    installApi({
+      'GET /api/summary/month': monthWithComida,
+      // The 400 the server really answers for a malformed `category_id` — the
+      // cheapest trigger, and the same branch as a 500 or a dropped request.
+      'GET /api/expenses': () =>
+        new Response(
+          JSON.stringify({ error: { code: 'validation', message: 'category_id' } }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } },
+        ),
+    })
+    mount('/finanzas/mes?categoria=1')
+
+    expect(await screen.findByText('No pude cargar esta lista.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
+    expect(screen.queryByText('En agosto ya no queda nada en Comida.')).toBeNull()
+    expect(screen.queryByText(/Puede que lo hayas borrado/)).toBeNull()
+    // The figure the false claim used to contradict is still on screen.
+    expect(screen.getByText('$1.284.500')).toBeInTheDocument()
   })
 
   it('offers no selection at all in an empty month (18.11)', async () => {

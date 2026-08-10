@@ -38,7 +38,8 @@ export function GastoDetalle() {
   // location entry carries `?mes=` and `?categoria=`, and only that entry's
   // scroll offset was recorded (17.8, 18.9). The fallback covers a location
   // with nothing behind it — a hand-typed URL, which no affordance produces.
-  const back = location.key === 'default' ? '/finanzas' : -1
+  const hayLista = location.key !== 'default'
+  const back = hayLista ? -1 : '/finanzas'
 
   const missing =
     expense.error instanceof ApiError && expense.error.code === 'not_found'
@@ -65,11 +66,27 @@ export function GastoDetalle() {
         <Banner title={servidor.bannerTitulo} detail={servidor.bannerCuerpo} />
       )}
 
-      {expense.data && (
+      {/* QA D1(b): `!missing` is load-bearing. TanStack keeps the last good
+          `data` when a refetch fails, so a detail reopened after the expense was
+          deleted rendered the complete record — amount, category, description,
+          both dates — UNDERNEATH its own "Este gasto ya no existe.", with a live
+          "Editar gasto" that opened the form pre-filled with a dead record. A
+          not-found state REPLACES the record; it never sits on top of it, and it
+          offers no way to edit what is not there.
+
+          Any other failure still shows the cached record with the unreachable
+          banner above it, which is deliberate and is what the approved mockup
+          draws: out of date is worth reading, gone is not. */}
+      {expense.data && !missing && (
         <Recibo
           e={expense.data}
           onEdit={() =>
-            navigate(`/finanzas/gasto/${expense.data!.id}/editar`, { state: { desde } })
+            navigate(`/finanzas/gasto/${expense.data!.id}/editar`, {
+              // 17.9 / QA D1(a): `hayLista` says an entry exists behind this
+              // detail, so deleting can pop past BOTH this screen and the form
+              // and leave the stack at `[lista]` — the design's push/pop table.
+              state: { desde, hayLista },
+            })
           }
         />
       )}

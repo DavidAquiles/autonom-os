@@ -214,6 +214,52 @@ describe('criteria 16.11, 17.9 — a deleted expense leaves Historial entirely',
   })
 })
 
+/**
+ * QA D3. This screen rendered a completely empty `<main>` when its list request
+ * failed while `/api/health` kept answering — no rows, no ordering line, no
+ * message, no control. It passed 70 tests and 132 screenshots in that state,
+ * because every test asked what happens when the request SUCCEEDS.
+ */
+describe('QA D3 — the list request fails while the server is reachable', () => {
+  const caida = () => {
+    throw new TypeError('Failed to fetch')
+  }
+
+  it('says the list did not load, offers a retry, and never claims nothing was recorded', async () => {
+    installApi({ 'GET /api/expenses': caida })
+    mount()
+
+    expect(await screen.findByText('No pude cargar esta lista.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
+    // 16.10's copy is a claim about the data. A request that failed has none.
+    expect(screen.queryByText('Todavía no has anotado ningún gasto.')).toBeNull()
+    // Constraint 42: not the blank screen this defect actually was.
+    expect(document.querySelector('main')!.textContent!.trim()).not.toBe('')
+  })
+
+  it('loads the list when the retry succeeds', async () => {
+    let caido = true
+    installApi({
+      'GET /api/expenses': () => {
+        if (caido) throw new TypeError('Failed to fetch')
+        return { items: ROWS.map(row), total_count: 4, next_before_id: null }
+      },
+    })
+    const user = userEvent.setup()
+    mount()
+
+    await screen.findByText('No pude cargar esta lista.')
+    caido = false
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+
+    expect(await screen.findByText('Transporte')).toBeInTheDocument()
+    expect(screen.queryByText('No pude cargar esta lista.')).toBeNull()
+    expect(
+      screen.getByText('En el orden en que los anotaste, no por su fecha.'),
+    ).toBeInTheDocument()
+  })
+})
+
 describe('criterion 16.10 — nothing has ever been recorded', () => {
   it('shows a designed state, not a blank screen or an empty frame', async () => {
     installApi({ 'GET /api/expenses': { items: [], total_count: 0, next_before_id: null } })

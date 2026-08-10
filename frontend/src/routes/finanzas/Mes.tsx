@@ -6,6 +6,7 @@ import { formatCOP } from '../../format/money'
 import { monthLabel, monthName, shiftMonth } from '../../format/dates'
 import { common, mes } from '../../copy/es'
 import { ExpenseLedger } from './ExpenseLedger'
+import { ListFailure } from './ListFailure'
 import s from './Finanzas.module.css'
 
 const TINTS = [
@@ -141,17 +142,33 @@ export function Mes() {
             )}
           </div>
 
-          {filtered.isPending ? (
-            <p className={s.skeleton}>{common.cargando}</p>
-          ) : filtered.data && filtered.data.items.length > 0 ? (
+          {filtered.isPending && <p className={s.skeleton}>{common.cargando}</p>}
+
+          {/* QA D2: this request failing used to fall through to 18.10's copy,
+              so the screen told the user the category was empty while the
+              breakdown above still showed its total — and the false half was
+              the reassuring one. `?categoria=0`, which the server 400s, is only
+              the cheapest trigger; the same branch caught EVERY failure of this
+              request. The list failing and the category being empty are now
+              different things on screen. */}
+          {filtered.isError && (
+            <ListFailure onRetry={() => filtered.refetch()} pending={filtered.isFetching} />
+          )}
+
+          {filtered.data && filtered.data.items.length > 0 && (
             <>
               {/* 18.2, 18.12, 18.13 — this category, this month, newest dated
                   first. Deliberately a different order from Historial (A37). */}
               <ExpenseLedger items={filtered.data.items} variant="categoria" />
               <div className={s.tail} />
             </>
-          ) : (
-            /* 18.10 / constraint 42: said in Spanish, never a blank area. */
+          )}
+
+          {/* 18.10 / constraint 42: said in Spanish, never a blank area — and
+              only ever about a list the server actually returned. `isSuccess`
+              is the whole fix: it is the difference between "there is nothing
+              here" and "I do not know what is here". */}
+          {filtered.isSuccess && filtered.data.items.length === 0 && (
             <EmptyState
               title={mes.categoriaVaciaTitulo(monthName(data.month), categoryName)}
               body={mes.categoriaVaciaCuerpo}

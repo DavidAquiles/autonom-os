@@ -346,3 +346,215 @@ starting state. I have not changed that recipe: it is Run 01's, it is outside
 this feature, and silently rewriting another lane's harness behaviour is worse
 than reporting it. QA should know that running the matrix can mutate the data it
 is photographing.
+
+---
+---
+
+# Frontend — QA rework note (cycle qa_impl 1: D1, D2, D3)
+
+> Appended by a **cold-spawned** frontend agent; the Phase 2 transcript above is
+> its predecessor's and was not available. Everything below was derived from
+> `factory/qa/report.md`, `factory/architect/design.md`, the approved mockups and
+> the code on disk.
+
+## Summary
+
+Three QA defects fixed, one file added, six touched. **D1** (Back after deleting
+showed the dead expense in full, with a working edit action) had two causes and
+both are fixed: the delete now **pops twice** instead of replacing, so the stack
+after deleting is the design's stated `[lista]`; and the not-found detail now
+**replaces** the record instead of rendering above it, so no cached expense and
+no "Editar gasto" survive a `404`. **D2** and **D3** were the same defect on two
+screens — a request that *failed* was reported as a list that came back *empty*
+(the month's category band) or as nothing at all (Historial) — and both now use
+one new shared state, `ListFailure`, which says the list did not load and offers
+a retry, and which stays silent when the app is already saying it cannot reach
+the server.
+
+The misleading save copy is **now unreachable** and was left alone (below).
+Scroll restoration (17.8, the run's biggest risk) was not touched; the Reviewer's
+F2 was not "fixed"; D4, D5, D6 were not touched — though D6 *changes as a
+consequence* of D1(a), see Deviations.
+
+Gates: **`npm run build` ✓ built in 1.48s · `npx tsc --noEmit` clean ·
+`npm run test` 75 passed / 9 files** (70 before, 5 added, none deleted or
+weakened) · **screenshot matrix 20 captures over the reworked states, 0 audit
+findings**. The user's database ends at **16 expenses / $267.970**, md5
+`f40f1c0965351565d9dccac1e6bd81b5` — unchanged; the server on `:8001` (pid 4663)
+was left running and untouched.
+
+## What changed, per defect
+
+### D1(a) — the navigation stack
+
+    GastoForm.tsx:89-110   afterDelete()                    <- design.md:582 push/pop table (17.9)
+    GastoForm.tsx:492      remove.mutate onSuccess
+    GastoDetalle.tsx:41-42 hayLista / back
+    GastoDetalle.tsx:80-92 !missing, and state: { desde, hayLista }
+
+**I implemented the table's stated stack, not its mechanism column** — the two
+disagree, and QA reproduced the disagreement. `navigate(desde, { replace: true })`
+at `[lista, detalle, editar]` yields `[lista, detalle, lista']`, so one Back tap
+lands on the deleted expense's detail. `afterDelete` pops **two** entries
+instead, which lands on `[lista]` *and* returns the user to the very location
+entry the row was tapped from, carrying its `?mes=`, `?categoria=` and recorded
+offset rather than a fresh copy of the same URL.
+
+**Architect: the table's mechanism column at `design.md:582` needs correcting**
+from "replace, to `estado.desde`" to "pop ×2, `estado.desde` as fallback". The
+predecessor followed the mechanism and was right to; the stack column is the one
+that expresses 17.9's intent.
+
+Knowing *whether* two entries exist cannot be read from `location.key` alone, so
+the detail now threads `hayLista` (there is an entry behind me) in router state
+alongside `desde` — the same mechanism, the same fallback discipline. Where it is
+false (a hand-typed `…/editar`, or a detail opened as the session's first entry)
+the old `replace` to `desde` still applies.
+
+**Popping cannot erase the FORWARD entries** — no History API can. That is why
+D1(b) is fixed *as well as*, not *instead of*, D1(a): the dead detail is still
+reachable by the forward button, and it must be harmless when it is reached.
+Captured: `tools/shots/qa-d1-adelante-gasto-borrado.png`.
+
+### D1(b) — the detail rendering cached data under its own not-found message
+
+    GastoDetalle.tsx:80    {expense.data && !missing && <Recibo …>}
+
+TanStack keeps the last good `data` when a refetch fails, so `expense.data` and
+`expense.error` were both truthy and the screen rendered both. `!missing` makes
+the not-found state **replace** the record. Any *other* failure still shows the
+cached record under the unreachable banner, which is deliberate and is what the
+approved mockup draws: out of date is worth reading, gone is not.
+
+### The misleading save copy — left alone, and now unreachable
+
+The `guardarFalloTitulo` / `guardarFalloCuerpo` pair ("no alcanzo tu servidor…
+vuelve a intentarlo cuando el computador esté despierto" for a live `404`) is Run
+01 copy on a Run 01 code path. It was reachable only through the edit button on a
+dead detail. With (b) there is no edit button on that screen, and with (a) the
+screen is not behind Back at all — so **I changed no copy and no branch there**,
+per the brief.
+
+### D2 — a failed category list reported as an empty category
+
+    Mes.tsx:154-175   isError → ListFailure; isSuccess → 18.10's empty state
+
+`filtered.isSuccess && items.length === 0` is the whole fix: it is the difference
+between "there is nothing here" and "I do not know what is here". The empty-state
+claim is now made only about a list the server actually returned. `?categoria=0`
+(the 400) is no longer special-cased — it lands in the same branch as a 500, a
+locked database or a dropped request, which is what QA asked for.
+
+The `?categoria` parse at `Mes.tsx:43` was **not** touched: rejecting `0`
+client-side would fix the cheapest trigger and leave the branch broken.
+
+### D3 — Historial blank on a partial failure
+
+    Historial.tsx:35      isError → ListFailure above whatever arrived
+    Historial.tsx:37-44   16.10's empty state only when the request succeeded
+
+The banner sits **above** the rows that did arrive, which is the shape
+`mockups/shots/historial--sin-servidor.png` drew; with nothing cached it is the
+whole screen. 16.10's copy is no longer reachable from a failure.
+
+### The new state
+
+    routes/finanzas/ListFailure.tsx   (new, 42 lines)
+    copy/es.ts:311-319                servidor.listaFallo{Titulo,Cuerpo}
+    components/ui/Panel.module.css:29-56   .action as a button; .action:disabled
+
+One component for both screens, for constraint 30's reason: two copies of an
+error state drift. It is the app's existing violet `Banner` — **no `var(--danger…)`**,
+so `estilos.test.ts:62-74` still passes with red confined to its three files.
+Copy: *"No pude cargar esta lista. / Tu servidor está respondiendo, pero esta
+lista no llegó. Lo que anotaste sigue guardado."* with **Reintentar**. It states
+what happened, does not apologise, does not claim anything about the data, and
+distinguishes itself from the outage the user already knows — which is the
+confusion QA named ("a user cannot tell the two situations apart").
+
+**It renders nothing when `useHealth()` is errored**, because `ReachabilityBanner`
+is already on screen saying exactly that. Two banners about one condition, in two
+wordings, is the self-contradicting screen D2 is about. Health — not the error's
+class — is the right signal: QA's repro blocks `/api/expenses` at the network
+layer while `/api/health` keeps answering, which raises `UnreachableError` for a
+server that is in fact reachable.
+
+## Tests added (5) — each verified to FAIL without its fix
+
+| test | file | fails without the fix as |
+| --- | --- | --- |
+| Back after deleting does not reach the dead detail (D1a) | `gastoDetalle.test.tsx:242` | `expected <h2>Este gasto ya no existe.</h2> to be null` |
+| the not-found state replaces the record (D1b) | `gastoDetalle.test.tsx:277` | `expected <div class="_amount_…"> to be null` |
+| a failed category list is not an empty category (D2) | `gastoDetalle.test.tsx:423` | the 18.10 copy renders |
+| the list did not load, with a retry, never "nothing recorded" (D3) | `historial.test.tsx:228` | blank `<main>`; no banner found |
+| the retry loads the list (D3) | `historial.test.tsx:240` | no banner found |
+
+Two small harness capabilities, both additive: `test/server.ts:90-97` lets a
+route answer with its own `Response` (the real 400) or throw (a request that
+never reaches a live server), and `gastoDetalle.test.tsx:36-59` adds an in-router
+**Back** control — the gesture QA used to find D1 and the only one no test was
+making.
+
+## Screenshot matrix — re-rendered against the built UI
+
+Run against a **scratch** database (a read-only `sqlite3` backup of the user's,
+so the WAL was captured) served by a scratch API on **:8011**; both deleted
+afterwards. `npm run shots` was **not** run — `tools/shots.mjs` gained
+`--only <regex>` precisely so a rework pass can re-photograph a handful of states
+without the `gasto-guardando` recipe reaching a database. A filtered run now
+writes `audit-parcial.json` so it cannot overwrite the full matrix's report.
+
+| state | capture |
+| --- | --- |
+| default (Historial, list failed) | `qa-d3-historial-lista-falla.png` |
+| **hover** | `…--reintentar-hover.png` — underline only, no colour change |
+| **focus-visible** | `…--reintentar-foco.png` — violet ring, unclipped |
+| **active/pressed** | `…--reintentar-pulsado.png` |
+| **disabled (retry in flight)** | `…--reintentando.png` — `--ink-soft`, contrast passed |
+| error over cached rows (the mockup's shape) | `…--sobre-filas.png` |
+| retry with nothing cached | `…--reintentando-sin-filas.png` |
+| narrow (320) | `…--320.png` |
+| D2, stubbed failure | `qa-d2-mes-categoria-lista-falla.png` |
+| D2, live `?categoria=0` (real 400) | `qa-d2-mes-categoria-cero.png` |
+| D2 control — a category that really *is* empty | `qa-d2-mes-categoria-vacia-de-verdad.png` |
+| D1(a), Back after deleting | `qa-d1-atras-tras-eliminar.png` — lands on Hoy |
+| D1(b), forward onto the dead detail | `qa-d1-adelante-gasto-borrado.png` — message alone |
+
+0 audit findings (contrast, 44×44 targets, horizontal overflow, dark-mode
+tripwire). **Not captured:** dark mode — constraint 22 is light-only and
+`estilos.test.ts` tripwires any `prefers-color-scheme` rule. **Loading** for
+these screens is the pre-existing `.skeleton`, unchanged, already in the matrix.
+
+Two states are captured in a way worth naming, because the naive version of each
+would have proved nothing:
+- the **disabled** retry only exists when the query has data (a query with no
+  data returns to `pending` on refetch and shows the skeleton), so the capture
+  loads live rows first and fails the *refetch* — `stubFrom` in the harness;
+- **Back after deleting**, entered directly at `/finanzas/historial`, leaves the
+  app entirely (correct — nothing is behind the list) and photographs a blank
+  browser page. The shot enters through the tab so there is a screen behind it.
+
+## Escalations / Deviations
+
+1. **The design doc is internally inconsistent at `design.md:582`** and I
+   implemented the stated stack. Flagged above for Architect.
+2. **D6 changes as a consequence, without being targeted.** Deleting from a list
+   now returns to the list's *saved offset* rather than to the top, because
+   popping restores the entry the offset was recorded against. D6 was deferred as
+   "cosmetic, arguably correct"; this is the deferred behaviour resolving itself
+   in the direction QA called consistent. Nothing was written to make it happen
+   and `useScrollMemory` was not touched.
+3. **`ListFailure` renders `null` when health is errored.** A deliberate
+   condition, argued above. The consequence: in a *warm* total outage with no
+   cached rows, Historial shows the reachability banner and nothing else — not a
+   blank `<main>`, but not this new state either.
+4. Nothing under `backend/` was read or written. No existing test deleted or
+   weakened (70 → 75).
+
+## Acceptance criteria
+
+No criterion changed hands. The fixes serve the **intent** of 17.9 and 17.11
+(D1), 18.10 (D2) and 16.10 + constraint 42 (D3); QA recorded all four as passing
+as written before this cycle, and each still passes — the 18.10 and 16.10
+empty-state tests were kept as the guard against over-correcting, and both are
+green.
