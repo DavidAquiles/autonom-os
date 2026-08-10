@@ -779,12 +779,17 @@ Three mechanisms, each doing one job:
    params without re-deriving them (17.8). The full push/pop table, and why saving
    the edit must pop rather than replace the way `Entrada.tsx:131` does, is in the
    client-side contract under *Leaving the detail and leaving the form*.
-3. **A router-state hint `estado.desde`, threaded row → detail → form** — the
-   originating list's **pathname plus its search string**, used for exactly one
-   thing: where to land after deleting from the form, since the detail entry behind
-   it is dead (17.9). It is a hint with a `/finanzas` fallback and never a data
-   source. Dropping the search half would reset the month and the selection on the
-   delete path — see the client-side contract entry.
+3. **Two router-state hints, `estado.desde` and `hayLista`, threaded row → detail
+   → form.** `desde` is the originating list's **pathname plus its search string**;
+   `hayLista` records whether a list entry exists behind the detail at all, which
+   `location.key` cannot tell you. Between them they serve one thing: where to land
+   after deleting from the form, since the detail entry behind it is dead (17.9).
+   The normal path is a **two-entry pop**; `desde` is the fallback used only when
+   `hayLista` is false, with `/finanzas` as its own fallback. Both are hints with
+   defaults and neither is ever a data source. Dropping `desde`'s search half would
+   reset the month and the selection on the delete path — see the client-side
+   contract entry, which also explains why a pop and not a replace, and why the pop
+   alone does not close 17.9.
 
 `?categoria` is dropped whenever `?mes` changes (18.7). An **archived** `categoria`
 lists its expenses normally — it is still in `by_category`, so it is still
