@@ -328,10 +328,46 @@ Mes (categoría)    useMonthSummary(mes)     → GET /api/summary/month   [uncha
                    useQuery(['expense-list','mes',mes,categoria])
                      → GET /api/expenses?month=YYYY-MM&category_id=N&limit=200
                      → ORDER BY e.spent_on DESC, e.created_at DESC, e.id DESC
+                   useCategories()          → GET /api/categories      [unchanged]
+                     → the band's NAME only, when by_category cannot supply it
 
 Detalle            useExpense(id)           → GET /api/expenses/{id}   [unchanged]
 Editar             useExpense(id) (same key) + useUpdateExpense        [unchanged]
 ```
+
+**Why Mes reads a third query.** The opened band's heading needs the category's
+name, and the obvious source — the `by_category` entry the user tapped — stops
+being available in exactly the state 18.10 exists to describe. `by_category` is
+built by `GROUP BY` over the month's expenses, so a category with **no expenses in
+the viewed month** is simply absent from it. That state is reachable in normal use:
+open a category, delete its last expense in that month (or recategorise it, or
+redate it out of the month), and the list empties under the user while the band is
+still open — 18.10's own wording. The name must survive that, or the band's heading
+blanks at the moment it most needs to say which category is empty.
+
+`useCategories()` (`api/queries.ts:78`, already in the codebase, already cached
+with `staleTime: 60_000`) is the resolver. Nothing new is fetched — the categories
+list is loaded by the expense form anyway. This is a name lookup and nothing more;
+the *totals* still come only from `by_category`, and the *rows* only from the list
+query, so no figure acquires a second source of truth.
+
+Two residual cases have no name anywhere, and both must render copy that does not
+invent one:
+
+1. **An unknown `categoria`** — no row in `categories` at all.
+2. **An archived category with nothing in the viewed month** — absent from
+   `by_category` because it has no expenses there, *and* absent from
+   `useCategories()` because the default `GET /api/categories` excludes archived
+   rows (`include_archived` defaults to `False`, `api/lookups.py:21` →
+   `WHERE t.archived_at IS NULL`, `repo/lookup.py:51`).
+
+The approved resolution is a name-free empty state — *"En agosto ya no queda nada
+en esa categoría."* Note what this is **not**: it is not a reason to pass
+`include_archived=true`. That would put archived categories into the form's chip
+row, which 3.4 and QA D7 deliberately removed (`repo/expenses.py:67-99`). An
+archived category that *does* have expenses in the month is unaffected — it is in
+`by_category`, so its name is available and its band reads normally, which is the
+case that actually matters for 18.2.
 
 ---
 
@@ -475,8 +511,16 @@ the whole design — same convention as
   operable control other than show-more (A27, A36, constraints 33 and 34); a
   visible statement of the ordering placed above the first row (16.6, constraint
   31); the show-more control present exactly while `next_before_id !== null` and
-  absent, with no spinner or trailing affordance, when it is `null` (constraint
-  32); a designed empty state when nothing has ever been recorded (constraint 42).
+  absent when it is `null` (constraint 32); a designed empty state when nothing has
+  ever been recorded (constraint 42).
+  **The last page ends silently — ruled at the mockup gate.** When
+  `next_before_id` is `null` the list simply stops: no spinner, no trailing
+  affordance, and **no closing label** — no "no hay más", no "fin del historial",
+  no rule or marker standing in for one. Constraint 32 stays literal, and the
+  absence of the control is itself the signal. A closing label was considered and
+  rejected; it is the "pagination as machinery" the visual direction names as a
+  thing to avoid, and on a list whose whole posture is a notebook being flipped
+  back, the last page is recognised by running out, not by being told.
   Rows carry amount, category, payment method and the date the expense is dated
   for. Pending and unreachable states follow the existing pattern and invent
   nothing — see *Waiting and unreachable*, below.
@@ -587,6 +631,18 @@ the whole design — same convention as
   constraint 42); no selection offered at all in an empty month (18.11); rows
   carrying amount, payment method, dated-for date and description when present
   (18.12); ordered by dated-for date, newest first (18.13, A37).
+  **Where 18.3 and 18.10 meet — ruled at the mockup gate, resolved toward 18.10.**
+  18.3 requires the band to show the category's total and its count; 18.10 requires
+  a plain "nothing left here" state for the same band when the category's last
+  expense in the month goes. Read naively the two produce a band reading
+  *"Comida · $0 · 0 gastos"*, which is the zero row the design language has
+  forbidden since Run 01 criterion 4.5. The ruling: **when the category is empty in
+  the viewed month, 18.10 governs alone — the band shows the category's name and
+  its close control, and no total and no count.** 18.3's two figures are a
+  non-empty-band obligation. The month's own total stays on screen throughout
+  (18.4) and is unaffected either way, so nothing the user was reading disappears.
+  The band's name in this state comes from `useCategories()`, not `by_category` —
+  see § Data flow — and where no name exists at all the copy names none.
   `requirements: 18.1, 18.3, 18.4, 18.5, 18.6, 18.7, 18.10, 18.11, 18.12`
 - **The viewed month and the selected category are navigable state** — held in the
   URL as `?mes=YYYY-MM` and `?categoria=<id>` on `/finanzas/mes` (KD-24), so a
@@ -872,15 +928,22 @@ one of the three screens will look right in any manual test that does not scroll
 first. QA should test all three scrolled — Historial at page three, Hoy on a long
 day, a filtered category on a busy month — not at the top.
 
-**R2 — Four tabs at 390 px (constraint 29).** `Hoy · Este mes · Historial ·
-Análisis` at 16 px semibold with the current `.tab` padding of 9 px each side and a
-10 px gap (`Screen.module.css:103-121`) estimates to roughly 360 px inside a 390 px
-viewport — it fits, but with under 30 px of margin, and estimated rather than
-measured. If it overflows, the permitted moves are uniform: reduce the `.tabs` gap
-and `.tab` padding, or reduce all four font sizes together. Constraint 29 forbids
-shrinking one label relative to its neighbours, and constraint 10 forbids dropping
-below a 44×44 target. Verify by screenshot (`frontend/tools/shots.mjs`), not by
-eye.
+**R2 — Four tabs at 390 px (constraint 29). CLOSED at the mockup gate; my estimate
+was pessimistic and should not be acted on.** I estimated roughly 360 px of tab
+strip inside a 390 px viewport — "under 30 px of margin" — from `.tab` padding of
+9 px each side and a 10 px gap (`Screen.module.css:103-121`). Measured, the four
+labels occupy **278.7 px with 70.3 px of slack**. The risk is not live: the strip
+fits comfortably and no remedy is needed.
+
+Consequently **the narrow-viewport remedy I proposed was rejected at the gate, and
+the shell metrics stay exactly as Run 01 approved them** — no reduction of the
+`.tabs` gap, no reduction of `.tab` padding, no font-size change. A later reader
+acting on the old 30 px figure would be shrinking a shell that has 70 px to spare
+and changing approved metrics for a problem that does not exist. Constraint 29's
+substantive prohibitions still bind on any future fifth tab: no truncation, no
+wrap, and no label rendered smaller than its neighbours; constraint 10's 44×44
+target likewise. The `finanzas-historial--320` recipe stays in the matrix as the
+narrow-width guard.
 
 **R3 — "Edited since" is true after a save that changed nothing.** `GastoForm`
 sends all five fields on every submit (`GastoForm.tsx:165-171`) and the repo
@@ -1004,3 +1067,26 @@ read as if everything were settled:
 
 Nothing else remains open. No question needed escalation from the Architect before
 this document was written.
+
+### Gate rulings folded in after approval
+
+Decisions the human made at the Approve Plan and mockup gates, recorded here as an
+index and folded into the sections they govern. Where a ruling and my original
+text disagreed, the ruling won and the original was rewritten rather than
+annotated — this document is what Reviewer and QA read, so it must not carry two
+answers.
+
+| Ruled | Outcome | Folded into |
+| --- | --- | --- |
+| 18.2's 200-row cap (R4/F3) | Accepted as designed | KD-21 and R4, unchanged |
+| A no-op save marking an expense edited (R3/F4) | Accepted as designed | R3, unchanged |
+| An empty category band: 18.3's figures or 18.10's plain state? | **18.10 governs alone** — name and close control, no total, no count. The zero row is forbidden | Client-side contract, *the month view's category drill-down* |
+| Historial's last page | **Ends silently** — no closing label; constraint 32 stays literal | Client-side contract, *Historial's screen* |
+| The narrow-viewport tab-strip remedy I proposed in R2 | **Rejected** — shell metrics stay as Run 01 approved them; measured 278.7 px of labels, 70.3 px of slack | R2, rewritten and closed |
+| Constraint 34's frame/content reading | Ratified with the five-operable enumeration | Client-side contract and the resolved-items list above |
+
+One change came from implementation rather than a gate and is recorded with them
+because it has the same standing: **Mes reads `useCategories()` for the opened
+band's name**, because `by_category` cannot supply it in precisely the empty state
+18.10 describes. Folded into § Data flow, with the two cases where no name exists
+and the copy that names none.
