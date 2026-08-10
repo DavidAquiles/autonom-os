@@ -2,26 +2,22 @@
   "schema_version": 2,
   "project_path": "/home/david/Proyectos/Autonom-OS",
   "factory_tools": "/home/david/Proyectos/software_factory/tools",
-  "mode": "greenfield",
+  "mode": "feature",
   "has_frontend": true,
-  "stage": "done",
-  "gates_passed": [
-    "kickoff",
-    "approve_plan",
-    "approve_mockups"
-  ],
+  "stage": "context",
+  "gates_passed": [],
   "index": {
     "head": null,
     "built_at": null,
     "packs_built_head": null
   },
   "environment_verified": {
-    "at": "2026-08-05T23:06:45+00:00",
+    "at": "2026-08-10T18:37:53+00:00",
     "profiles": [
       "core",
       "node",
-      "python",
-      "visual"
+      "visual",
+      "python"
     ],
     "results": {
       "git": {
@@ -56,22 +52,6 @@
         "required": true,
         "why": "frontend dependency install"
       },
-      "pip": {
-        "present": true,
-        "version": "pip 25.1.1 from /usr/lib/python3/dist-packages/pip (python 3.14)",
-        "reason": null,
-        "profile": "python",
-        "required": true,
-        "why": "dependency install"
-      },
-      "pytest": {
-        "present": false,
-        "version": null,
-        "reason": "exit 1: /usr/bin/python3: No module named pytest",
-        "profile": "python",
-        "required": false,
-        "why": "QA runs the suite; absence means unit gates are unverifiable"
-      },
       "chromium": {
         "present": true,
         "version": "Chromium 150.0.7871.128 snap",
@@ -103,265 +83,51 @@
         "profile": "visual",
         "required": false,
         "why": "drives the browser for screenshots"
+      },
+      "pip": {
+        "present": true,
+        "version": "pip 25.1.1 from /usr/lib/python3/dist-packages/pip (python 3.14)",
+        "reason": null,
+        "profile": "python",
+        "required": true,
+        "why": "dependency install"
+      },
+      "pytest": {
+        "present": false,
+        "version": null,
+        "reason": "exit 1: /usr/bin/python3: No module named pytest",
+        "profile": "python",
+        "required": false,
+        "why": "QA runs the suite; absence means unit gates are unverifiable"
       }
     },
     "visual_capable": true,
     "missing_required": []
   },
-  "verification": {
-    "frontend:install": {
-      "result": "pass",
-      "exit_code": 0,
-      "command": "npm ci",
-      "detail": "added 193 packages, and audited 194 packages in 3s\n\n34 packages are looking for funding\n  run `npm fund` for details\n\n7 vulnerabilities (5 moderate, 1 high, 1 critical)\n\nTo address issues that do not require attention, run:\n  npm audit fix\n\nTo address all issues (including breaking changes), run:\n  npm audit fix --force\n\nRun `npm audit` for details.\nnpm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation\nnpm warn allow-scripts 3 packages have install scripts not yet covered by allowScripts:\nnpm warn allow-scripts   esbuild@0.25.12 (postinstall: node install.js)\nnpm warn allow-scripts   esbuild@0.21.5 (postinstall: node install.js)\nnpm warn allow-scripts   esbuild@0.21.5 (postinstall: node install.js)\nnpm warn allow-scripts\nnpm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.",
-      "required": false,
-      "at": "2026-08-06T19:33:28+00:00",
-      "rev": "f1042f4"
-    },
-    "frontend:build": {
-      "result": "pass",
-      "exit_code": 0,
-      "command": "npm run build",
-      "detail": "> autonomos-frontend@1.0.0 build\n> tsc --noEmit && vite build\n\nvite v6.4.3 building for production...\ntransforming...\n✓ 120 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                        0.84 kB │ gzip:  0.43 kB\ndist/.vite/manifest.json               0.91 kB │ gzip:  0.27 kB\ndist/assets/lato-300-GkIoKc5W.woff2   31.59 kB\ndist/assets/lato-700-CFk2j1t1.woff2   32.04 kB\ndist/assets/lato-600-BbtMiJnp.woff2   32.45 kB\ndist/assets/lato-400-D8ozJx6k.woff2   32.54 kB\ndist/assets/index-DY1Hon0J.css        28.89 kB │ gzip:  5.73 kB\ndist/assets/index-CwTTbTTq.js        279.51 kB │ gzip: 89.00 kB\n✓ built in 1.56s",
-      "required": true,
-      "at": "2026-08-06T19:33:32+00:00",
-      "rev": "f1042f4"
-    },
-    "frontend:typecheck": {
-      "result": "pass",
-      "exit_code": 0,
-      "command": "npx tsc --noEmit",
-      "detail": "",
-      "required": true,
-      "at": "2026-08-06T19:33:35+00:00",
-      "rev": "f1042f4"
-    },
-    "backend:unit": {
-      "result": "pass",
-      "exit_code": 0,
-      "command": "uv run --python 3.12 pytest -q",
-      "detail": "........................................................................ [ 27%]\n........................................................................ [ 55%]\n........................................................................ [ 82%]\n.............................................                            [100%]\n=============================== warnings summary ===============================\ntests/test_contract_conformance.py::test_every_contract_endpoint_exists\n  /home/david/Proyectos/Autonom-OS/backend/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n261 passed, 1 warning in 12.05s",
-      "required": true,
-      "at": "2026-08-06T19:33:48+00:00",
-      "rev": "f1042f4"
-    },
-    "frontend:unit": {
-      "result": "pass",
-      "exit_code": 0,
-      "command": "npm run test",
-      "detail": " ✓ src/format/money.test.ts (5 tests) 8ms\n ✓ src/test/estilos.test.ts (9 tests) 13ms\n ✓ src/format/dates.test.ts (4 tests) 5ms\n ✓ src/copy/es.test.ts (6 tests) 11ms\n ✓ src/test/captura.test.tsx (11 tests) 1661ms\n   ✓ criterion 2.8 — a complete expense in four interactions > saves in exactly four taps beyond typing the amount 371ms\n   ✓ criterion 13.2 — a cold open with no server > renders the Spanish \"cannot reach your server\" screen, not a blank 1027ms\n ✓ src/test/origenes.test.tsx (6 tests) 4371ms\n   ✓ offering the alternative origin (criterion 13.8) > links every stored origin that is not the one we are already on 1129ms\n   ✓ offering the alternative origin (criterion 13.8) > never offers a link back to the origin already being served 1041ms\n   ✓ offering the alternative origin (criterion 13.8) > still says in Spanish what to do when nothing has ever been stored 1066ms\n   ✓ offering the alternative origin (criterion 13.8) > ignores a stored value that is not a usable absolute origin 1036ms\n\n Test Files  6 passed (6)\n      Tests  41 passed (41)\n   Start at  14:33:48\n   Duration  6.25s (transform 480ms, setup 483ms, collect 1.36s, tests 6.07s, environment 4.74s, prepare 665ms)\n\nstderr | src/test/origenes.test.tsx > arming the alternative origin (KD-2 mechanism 1) > persists both origins on a successful /api/health, whatever origin is serving\n⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.\n⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.\n\nstderr | src/test/captura.test.tsx > criterion 2.8 — a complete expense in four interactions > saves in exactly four taps beyond typing the amount\n⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.\n⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.",
-      "required": true,
-      "at": "2026-08-06T19:33:55+00:00",
-      "rev": "f1042f4"
-    },
-    "backend:contract": {
-      "result": "pass",
-      "exit_code": 0,
-      "command": "uv run --python 3.12 pytest -q tests/test_contract_conformance.py",
-      "detail": "........................................                                 [100%]\n=============================== warnings summary ===============================\ntests/test_contract_conformance.py::test_every_contract_endpoint_exists\n  /home/david/Proyectos/Autonom-OS/backend/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n40 passed, 1 warning in 0.72s",
-      "required": true,
-      "at": "2026-08-06T19:33:56+00:00",
-      "rev": "f1042f4"
-    },
-    "test_integrity": {
-      "result": "pass",
-      "files": 21,
-      "tests": 221,
-      "assertions": 565,
-      "at": "2026-08-06T19:33:56+00:00",
-      "detail": "221 tests, 565 assertions across 21 files (static, repo-wide); no drop vs the previous run (201 / 495)",
-      "rev": "f1042f4"
-    }
-  },
+  "verification": {},
   "loops": {
-    "review_impl": 1,
-    "qa_impl": 1
+    "review_impl": 0,
+    "qa_impl": 0
   },
   "caps": {
     "review_impl": 3,
     "qa_impl": 3
   },
-  "agents": {
-    "pm": {
-      "id": "aba0c1ccba4247e89",
-      "status": "completed",
-      "spawned_at": "2026-08-05T23:13:41+00:00"
-    },
-    "architect": {
-      "id": "a4ec1c0fc05301488",
-      "status": "completed",
-      "spawned_at": "2026-08-05T23:33:08+00:00"
-    },
-    "backend": {
-      "id": "ac93ff97fda6d771c",
-      "status": "failed",
-      "spawned_at": "2026-08-06T00:52:13+00:00"
-    },
-    "frontend": {
-      "id": "afd21daa27e21f576",
-      "status": "dead",
-      "spawned_at": "2026-08-06T00:52:14+00:00"
-    }
-  },
-  "baseline_revision": "247f6b044c77ac0832175b61e2bb5b38c863ac00",
+  "agents": {},
+  "baseline_revision": "418d7b3da081d4871d654a6b91615c33d0d53bcd",
   "blockers": [],
-  "deferred": [
-    {
-      "summary": "F4: generating-summary wire state near-unreachable after first ready month",
-      "evidence": "backend/autonomos/api/insights.py:99 'row = summaries_repo.latest_ready(conn) or summaries_repo.latest(conn)'; latest_ready selects status IN ('ready','empty') at repo/summaries.py:33-37 — Design Constraint 27 surface exists but its driving state cannot occur in steady use. Contract change for Architect.",
-      "location": null,
-      "severity": null,
-      "at": "2026-08-06T03:34:44+00:00"
-    },
-    {
-      "summary": "F5: failed-save banner red, Design Constraint 3 reserves red for destructive/validation",
-      "evidence": "frontend/src/components/ui/Panel.module.css:59-65 (.alarm -> --danger-wash/--danger-line/--danger); faithful to APPROVED mockup mockups/gasto-guardar-fallo.html:481 style=background:var(--danger-wash);border-color:#F0C3C8. Constraint has no colour for 'write failed and nothing was lost'. PM to widen constraint 3.",
-      "location": null,
-      "severity": null,
-      "at": "2026-08-06T03:34:44+00:00"
-    },
-    {
-      "summary": "F6: journal Todo list caps at 50 newest, no pagination control",
-      "evidence": "frontend/src/api/queries.ts:186-191 limit:50, response next_before never read; orphaned copy frontend/src/copy/es.ts:118 cargarMas:'Ver entradas mas antiguas' rendered nowhere. Server-side cursor implemented at backend/autonomos/api/journal.py:21-32. AC 7.1 letter met.",
-      "location": null,
-      "severity": null,
-      "at": "2026-08-06T03:34:44+00:00"
-    },
-    {
-      "summary": "F7: failed summary retried 3x back-to-back with no backoff",
-      "evidence": "backend/autonomos/scheduler.py:134-154 _drain_summaries re-enters run_summary same month with no delay; only cancelled outcomes counted (MAX_CANCEL_RETRIES). Three llm_unavailable failures burn all attempts in one tick while Ollama is down.",
-      "location": null,
-      "severity": null,
-      "at": "2026-08-06T03:34:44+00:00"
-    },
-    {
-      "summary": "F8: ESTADO-PERDIDO liveness detector skips shots configured with a force: selector",
-      "evidence": "frontend/tools/shots.mjs:887-894 — detector runs only for forceText: shots; force: selector shots return forceLost:false unconditionally. Tooling not product; bounds how much weight interactive-state captures carry.",
-      "location": null,
-      "severity": null,
-      "at": "2026-08-06T17:31:54+00:00"
-    },
-    {
-      "summary": "D4: amounts inside LLM-generated summary prose not in Colombian convention",
-      "evidence": "July summary wrote '313.000 pesos' (correct); June summary wrote '346,000' (comma). Same prompt, same model. App formatter never wrong; this is model prose it does not touch. Whether 2.5/constraint 21 reach LLM text is PM's call.",
-      "location": null,
-      "severity": null,
-      "at": "2026-08-06T18:51:18+00:00"
-    },
-    {
-      "summary": "D6: 21-digit amount echoes as 1e.+21 in the MONTO field (cosmetic)",
-      "evidence": "Value passes through Number to 1e+21 then thousands formatter inserts a dot. Submitting is correctly refused in Spanish and nothing is saved. QA screenshot 96-monto-absurdo.png.",
-      "location": null,
-      "severity": null,
-      "at": "2026-08-06T18:51:18+00:00"
-    }
-  ],
+  "deferred": [],
   "history": [
     {
       "stage": "intake",
-      "at": "2026-08-05T23:06:28+00:00",
-      "note": "run created (greenfield)"
+      "at": "2026-08-10T18:37:50+00:00",
+      "note": "run created (feature)"
     },
     {
-      "stage": "pm",
-      "at": "2026-08-05T23:07:07+00:00",
-      "note": "stage intake -> pm"
-    },
-    {
-      "stage": "pm",
-      "at": "2026-08-05T23:13:41+00:00",
-      "note": "pm: completed"
-    },
-    {
-      "stage": "pm",
-      "at": "2026-08-05T23:15:47+00:00",
-      "note": "gate passed: kickoff"
-    },
-    {
-      "stage": "architect",
-      "at": "2026-08-05T23:21:30+00:00",
-      "note": "stage pm -> architect"
-    },
-    {
-      "stage": "architect",
-      "at": "2026-08-05T23:33:08+00:00",
-      "note": "architect: completed"
-    },
-    {
-      "stage": "analyze",
-      "at": "2026-08-05T23:33:11+00:00",
-      "note": "stage architect -> analyze"
-    },
-    {
-      "stage": "analyze",
-      "at": "2026-08-06T00:47:24+00:00",
-      "note": "gate passed: approve_plan"
-    },
-    {
-      "stage": "implement",
-      "at": "2026-08-06T00:50:40+00:00",
-      "note": "stage analyze -> implement"
-    },
-    {
-      "stage": "implement",
-      "at": "2026-08-06T00:52:13+00:00",
-      "note": "backend: spawned"
-    },
-    {
-      "stage": "implement",
-      "at": "2026-08-06T00:52:14+00:00",
-      "note": "frontend: spawned"
-    },
-    {
-      "stage": "implement",
-      "at": "2026-08-06T02:23:47+00:00",
-      "note": "gate passed: approve_mockups"
-    },
-    {
-      "stage": "implement",
-      "at": "2026-08-06T02:24:25+00:00",
-      "note": "frontend: dead"
-    },
-    {
-      "stage": "implement",
-      "at": "2026-08-06T02:25:18+00:00",
-      "note": "frontend: spawned"
-    },
-    {
-      "stage": "review",
-      "at": "2026-08-06T03:22:21+00:00",
-      "note": "stage implement -> review"
-    },
-    {
-      "stage": "review",
-      "at": "2026-08-06T03:34:48+00:00",
-      "note": "review_impl rework 1/3"
-    },
-    {
-      "stage": "review",
-      "at": "2026-08-06T16:39:59+00:00",
-      "note": "backend: failed"
-    },
-    {
-      "stage": "review",
-      "at": "2026-08-06T16:53:06+00:00",
-      "note": "frontend: dead"
-    },
-    {
-      "stage": "qa",
-      "at": "2026-08-06T17:32:19+00:00",
-      "note": "stage review -> qa"
-    },
-    {
-      "stage": "qa",
-      "at": "2026-08-06T18:51:18+00:00",
-      "note": "qa_impl rework 1/3"
-    },
-    {
-      "stage": "done",
-      "at": "2026-08-07T00:33:17+00:00",
-      "note": "stage qa -> done"
+      "stage": "context",
+      "at": "2026-08-10T18:38:16+00:00",
+      "note": "stage intake -> context"
     }
   ],
-  "updated_at": "2026-08-07T00:33:17+00:00"
+  "updated_at": "2026-08-10T18:38:16+00:00"
 }
