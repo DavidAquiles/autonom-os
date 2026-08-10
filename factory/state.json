@@ -4,7 +4,7 @@
   "factory_tools": "/home/david/Proyectos/software_factory/tools",
   "mode": "feature",
   "has_frontend": true,
-  "stage": "implement",
+  "stage": "review",
   "gates_passed": [
     "kickoff",
     "approve_plan",
@@ -200,13 +200,49 @@
     },
     "frontend": {
       "id": "a083ee7db3bd3ef56",
-      "status": "spawned",
+      "status": "completed",
       "spawned_at": "2026-08-10T19:42:56+00:00"
     }
   },
   "baseline_revision": "418d7b3da081d4871d654a6b91615c33d0d53bcd",
   "blockers": [],
-  "deferred": [],
+  "deferred": [
+    {
+      "summary": "npm run shots intermittently writes a real expense to the dev database via the pre-existing gasto-guardando recipe",
+      "evidence": "Frontend Phase 2 implementer: 'npm run shots intermittently writes a real $14.000 Transporte expense via the pre-existing gasto-guardando recipe. I removed the three my runs created and left the recipe alone.' Pre-existing, outside this run's slice.",
+      "location": null,
+      "severity": null,
+      "at": "2026-08-10T21:51:52+00:00"
+    },
+    {
+      "summary": "F1: delete-from-detail replaces the editar entry, so Back lands on the deleted expense's detail (renders 17.11), not the list",
+      "evidence": "GastoForm.tsx:468 navigate(desde, { replace: true }) yields stack [lista, detalle, lista'], not the [lista] stated at design.md:582. The push/pop table's mechanism and stack columns disagree; implementer followed the mechanism. Routes to architect.",
+      "location": null,
+      "severity": null,
+      "at": "2026-08-10T21:59:54+00:00"
+    },
+    {
+      "summary": "F2: useScrollMemory writes scrollTop=0 without guarding restoring.current, so a Finanzas tab switch could overwrite the outgoing key's offset",
+      "evidence": "useScrollMemory.ts:57-60 sets el.scrollTop = 0 without setting restoring.current = true (unlike :62); passive cleanup at :51 detaches the listener. Not statically decidable; flagged as a QA probe, not a defect claim.",
+      "location": null,
+      "severity": null,
+      "at": "2026-08-10T21:59:54+00:00"
+    },
+    {
+      "summary": "F3: the no-history fallback close pushes instead of replacing",
+      "evidence": "GastoForm.tsx:242 + Screen.tsx:78 disagree with backToDetalle at Screen.tsx:85 and with design.md:597.",
+      "location": null,
+      "severity": null,
+      "at": "2026-08-10T21:59:54+00:00"
+    },
+    {
+      "summary": "F4: Mes accepts ?categoria=0, which the backend 400s; Mes renders the 18.10 empty state for it",
+      "evidence": "Mes.tsx:43 accepts categoria=0.",
+      "location": null,
+      "severity": null,
+      "at": "2026-08-10T21:59:54+00:00"
+    }
+  ],
   "history": [
     {
       "stage": "intake",
@@ -287,7 +323,17 @@
       "stage": "implement",
       "at": "2026-08-10T20:52:40+00:00",
       "note": "frontend: spawned"
+    },
+    {
+      "stage": "implement",
+      "at": "2026-08-10T21:51:52+00:00",
+      "note": "frontend: completed"
+    },
+    {
+      "stage": "review",
+      "at": "2026-08-10T21:51:52+00:00",
+      "note": "stage implement -> review"
     }
   ],
-  "updated_at": "2026-08-10T21:51:41+00:00"
+  "updated_at": "2026-08-10T21:59:54+00:00"
 }
