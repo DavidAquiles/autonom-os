@@ -4,7 +4,7 @@
   "factory_tools": "/home/david/Proyectos/software_factory/tools",
   "mode": "feature",
   "has_frontend": true,
-  "stage": "pm",
+  "stage": "architect",
   "gates_passed": [
     "kickoff"
   ],
@@ -150,7 +150,12 @@
       "stage": "pm",
       "at": "2026-08-10T19:04:01+00:00",
       "note": "gate passed: kickoff"
+    },
+    {
+      "stage": "architect",
+      "at": "2026-08-10T19:05:27+00:00",
+      "note": "stage pm -> architect"
     }
   ],
-  "updated_at": "2026-08-10T19:04:01+00:00"
+  "updated_at": "2026-08-10T19:05:27+00:00"
 }
