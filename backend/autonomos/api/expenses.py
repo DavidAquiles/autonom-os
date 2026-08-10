@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from typing import Literal
 
 from fastapi import APIRouter, Query, Response
 
@@ -55,17 +56,35 @@ def create_expense(payload: ExpenseCreate) -> dict:
 def list_expenses(
     date: str | None = Query(None),
     month: str | None = Query(None),
+    category_id: int | None = Query(None, ge=1),
+    order: Literal["spent", "registered"] = Query("spent"),
+    before_id: int | None = Query(None, ge=1),
     limit: int = Query(200, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> dict:
+    """One list, three orthogonal capabilities (KD-18).
+
+    `order` selects the arrangement — `"spent"` is the default so nothing that
+    already calls this changes; `"registered"` is Historial's (16.2).
+    `category_id` restricts to one category for the month drill-down (18.2), and
+    an unknown one is an empty list rather than an error. `before_id` is the
+    keyset cursor behind 16.7–16.9. All rules and all SQL stay in the repo.
+    """
     if date is not None and parse_date(date) is None:
         raise ValidationError([field_error("date", "required")])
     if month is not None and not is_valid_month(month):
         raise ValidationError([field_error("month", "required")])
-    items, total = repo.list_expenses(
-        get_db(), date=date, month=month, limit=limit, offset=offset
+    items, total, next_before_id = repo.list_expenses(
+        get_db(),
+        date=date,
+        month=month,
+        category_id=category_id,
+        order=order,
+        before_id=before_id,
+        limit=limit,
+        offset=offset,
     )
-    return {"items": items, "total_count": total}
+    return {"items": items, "total_count": total, "next_before_id": next_before_id}
 
 
 @router.post("/parse", response_model=ExpenseDraft)

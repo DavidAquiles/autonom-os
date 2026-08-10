@@ -66,6 +66,45 @@ def test_no_endpoint_exists_beyond_the_contract(client):
     assert not extra, f"endpoints outside the contract: {sorted(extra)}"
 
 
+# --- the query parameters of GET /api/expenses ----------------------------
+#
+# The two tests above compare `(method, path)` pairs, so a query parameter that
+# appears, disappears or is renamed passes them untouched (R5). Every parameter
+# this run added to the expense list is therefore unguarded by the repo's
+# strictest gate, and the frontend is built against the written contract without
+# seeing this code. Same closed-set treatment, asserted in both directions.
+
+EXPENSE_LIST_QUERY_PARAMS = {
+    "date",
+    "month",
+    "category_id",
+    "order",
+    "before_id",
+    "limit",
+    "offset",
+}
+
+
+def expense_list_query_parameters(client) -> set[str]:
+    schema = client.get("/api/openapi.json").json()
+    operation = schema["paths"]["/api/expenses"]["get"]
+    return {
+        parameter["name"]
+        for parameter in operation.get("parameters", [])
+        if parameter.get("in") == "query"
+    }
+
+
+def test_every_contracted_expense_list_parameter_exists(client):
+    missing = EXPENSE_LIST_QUERY_PARAMS - expense_list_query_parameters(client)
+    assert not missing, f"contract query parameters not implemented: {sorted(missing)}"
+
+
+def test_no_expense_list_parameter_exists_beyond_the_contract(client):
+    extra = expense_list_query_parameters(client) - EXPENSE_LIST_QUERY_PARAMS
+    assert not extra, f"query parameters outside the contract: {sorted(extra)}"
+
+
 # --- KD-7 boundary rule ---------------------------------------------------
 
 VENDOR_TERMS = ("ollama", "whisper", "qwen", "llama", "ggml", "gguf")

@@ -239,37 +239,99 @@ def delete(conn: sqlite3.Connection, expense_id: int) -> None:
         raise NotFound("expense")
 
 
+# Two orderings, on purpose (R6). `spent` is the day-oriented one every existing
+# caller already gets and stays byte-for-byte what it was. `registered` is
+# "the order I recorded them" (16.2): `id` is INTEGER PRIMARY KEY AUTOINCREMENT,
+# so it is assigned in insertion order, is total by construction — no tiebreaker
+# exists to add — and is SQLite's rowid, so this is a backwards walk of the table
+# with no sort step and no index (KD-19). It is also why editing an expense
+# cannot move it (16.4): nothing an edit touches is the id.
+_ORDER_BY = {
+    "spent": "ORDER BY e.spent_on DESC, e.created_at DESC, e.id DESC",
+    "registered": "ORDER BY e.id DESC",
+}
+ORDERS = tuple(_ORDER_BY)
+
+
 def list_expenses(
     conn: sqlite3.Connection,
     *,
     date: str | None = None,
     month: str | None = None,
+    category_id: int | None = None,
+    order: str = "spent",
+    before_id: int | None = None,
     limit: int = 200,
     offset: int = 0,
-) -> tuple[list[dict], int]:
-    where = ""
+) -> tuple[list[dict], int, int | None]:
+    """Rows, the count they were drawn from, and the next keyset cursor.
+
+    Three independent axes, none of which silently ignores another:
+
+    - `date` / `month` / `category_id` **select** the rows. An unknown
+      `category_id` simply matches nothing — it is an empty list, not an error —
+      and an **archived** category is not excluded, because 18.2 must reach the
+      expenses filed under a category that has since been removed (3.4 keeps them
+      attributed to it, and `by_category` still shows it).
+    - `order` **arranges** them: `"spent"` (the default, so no existing caller
+      changes) or `"registered"` (16.2, KD-19).
+    - `before_id` **cuts** them, strictly, before ordering and paging. It is the
+      keyset cursor Historial pages with, copied from the journal
+      (`repo/journal.py:88-96`): fetch one more row than asked, return `limit`,
+      and report a cursor only when that extra row appeared. Offset paging would
+      repeat a row when an expense is captured mid-scroll and skip one when an
+      expense is deleted — the two things 16.7 and 16.8 forbid (KD-20).
+
+    `total_count` counts the *selection* only: it ignores `before_id`, `limit` and
+    `offset`, so it is stable while paging and is the figure 18.3 renders even
+    where the list itself is capped (R4).
+    """
+    if order not in _ORDER_BY:
+        order = "spent"
+
+    conditions: list[str] = []
     params: list[object] = []
     if date:
-        where = "WHERE e.spent_on = ?"
+        conditions.append("e.spent_on = ?")
         params.append(date)
     elif month:
         start, end = month_bounds(month)
-        where = "WHERE e.spent_on BETWEEN ? AND ?"
+        conditions.append("e.spent_on BETWEEN ? AND ?")
         params.extend([start, end])
+    if category_id is not None:
+        conditions.append("e.category_id = ?")
+        params.append(category_id)
 
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     total = conn.execute(
-        f"SELECT COUNT(*) AS c FROM expenses e {where.replace('e.', 'e.')}", params
+        f"SELECT COUNT(*) AS c FROM expenses e {where}", params
     ).fetchone()["c"]
+
+    cursor_conditions = list(conditions)
+    cursor_params = list(params)
+    if before_id is not None:
+        cursor_conditions.append("e.id < ?")
+        cursor_params.append(before_id)
+    cursor_where = f"WHERE {' AND '.join(cursor_conditions)}" if cursor_conditions else ""
+
     rows = conn.execute(
-        f"{_SELECT} {where} ORDER BY e.spent_on DESC, e.created_at DESC, e.id DESC "
-        "LIMIT ? OFFSET ?",
-        (*params, limit, offset),
+        f"{_SELECT} {cursor_where} {_ORDER_BY[order]} LIMIT ? OFFSET ?",
+        (*cursor_params, limit + 1, offset),
     ).fetchall()
-    return [row_to_expense(row) for row in rows], int(total)
+    has_more = len(rows) > limit
+    items = [row_to_expense(row) for row in rows[:limit]]
+    # Only the registration order has a keyset cursor: `id` is what that order
+    # walks, so it is the only order for which "everything below this id" is the
+    # rest of the list. `"spent"` therefore always reports `null` — the single
+    # unambiguous "everything is shown" signal 16.9 renders against.
+    next_before_id = (
+        items[-1]["id"] if (order == "registered" and has_more and items) else None
+    )
+    return items, int(total), next_before_id
 
 
 def day_summary(conn: sqlite3.Connection, date: str) -> dict:
-    items, _count = list_expenses(conn, date=date, limit=500, offset=0)
+    items, _count, _cursor = list_expenses(conn, date=date, limit=500, offset=0)
     total = sum(item["amount_cop"] for item in items)
     return {
         "date": date,

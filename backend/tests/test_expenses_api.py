@@ -243,3 +243,229 @@ def test_expense_list_filters_by_month_and_day(client):
     assert by_month["total_count"] == 1
     by_day = client.get("/api/expenses", params={"date": "2026-07-15"}).json()
     assert by_day["total_count"] == 1
+
+
+# --- Historial: registration order, keyset paging (Requirement 16) ---------
+#
+# Dates are taken relative to `today()` so the suite does not rot: `a_day_in`
+# walks backwards from the last day of the previous month, which is always in
+# that month for any offset under 28.
+
+
+def last_month_day(offset: int = 0) -> str:
+    """A date inside the previous calendar month, `offset` days before its end."""
+    end_of_last_month = today().replace(day=1) - timedelta(days=1)
+    return (end_of_last_month - timedelta(days=offset)).isoformat()
+
+
+def last_month() -> str:
+    return last_month_day()[:7]
+
+
+def listed(client, **params) -> dict:
+    response = client.get("/api/expenses", params=params)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def ids(body: dict) -> list[int]:
+    return [item["id"] for item in body["items"]]
+
+
+def test_16_2_historial_is_ordered_by_when_it_was_recorded_not_by_its_date(client):
+    """`order=registered` ignores `spent_on` entirely. The three below are
+    recorded newest-date-first, so the two orderings are exact opposites and
+    neither result can be produced by the other's SQL."""
+    first = make_expense(client, spent_on=last_month_day(0)).json()
+    second = make_expense(client, spent_on=last_month_day(10)).json()
+    third = make_expense(client, spent_on=last_month_day(20)).json()
+
+    assert ids(listed(client, order="registered")) == [
+        third["id"], second["id"], first["id"]
+    ]
+    assert ids(listed(client)) == [first["id"], second["id"], third["id"]]
+
+
+def test_16_3_an_expense_dated_in_the_past_is_at_the_top_of_historial(client):
+    """Recorded last, dated earliest — 16.3 puts it first anyway."""
+    dated_today = make_expense(client).json()
+    backdated = make_expense(client, spent_on=last_month_day(3)).json()
+
+    assert ids(listed(client, order="registered"))[0] == backdated["id"]
+    # The default (date) ordering is where it sinks below the newer date.
+    assert ids(listed(client))[0] == dated_today["id"]
+
+
+def test_16_4_editing_an_expense_does_not_move_it_in_historial(client):
+    first = make_expense(client).json()["id"]
+    middle = make_expense(client).json()["id"]
+    last = make_expense(client).json()["id"]
+    before = ids(listed(client, order="registered"))
+
+    client.patch(
+        f"/api/expenses/{middle}",
+        json={"amount_cop": 99000, "spent_on": last_month_day(5)},
+    )
+
+    assert ids(listed(client, order="registered")) == before == [last, middle, first]
+
+
+def test_16_7_paging_appends_older_records_without_repeating_or_reordering(client):
+    recorded = [make_expense(client).json()["id"] for _ in range(7)]
+    expected = list(reversed(recorded))
+
+    first_page = listed(client, order="registered", limit=3)
+    assert ids(first_page) == expected[:3]
+    assert first_page["next_before_id"] == expected[2]
+
+    second_page = listed(
+        client, order="registered", limit=3, before_id=first_page["next_before_id"]
+    )
+    assert ids(second_page) == expected[3:6]
+    assert not set(ids(first_page)) & set(ids(second_page))
+
+
+def test_16_8_repeated_paging_reaches_the_very_first_expense_ever_recorded(client):
+    recorded = [make_expense(client).json()["id"] for _ in range(7)]
+
+    seen: list[int] = []
+    cursor = None
+    for _ in range(10):  # bounded, so a non-terminating cursor fails rather than hangs
+        page = listed(
+            client,
+            order="registered",
+            limit=2,
+            **({"before_id": cursor} if cursor is not None else {}),
+        )
+        seen.extend(ids(page))
+        cursor = page["next_before_id"]
+        if cursor is None:
+            break
+
+    assert cursor is None
+    assert seen == list(reversed(recorded))
+    assert seen[-1] == recorded[0]
+
+
+def test_16_9_the_last_page_presents_no_cursor(client):
+    for _ in range(4):
+        make_expense(client)
+    assert listed(client, order="registered", limit=4)["next_before_id"] is None
+    assert listed(client, order="registered", limit=10)["next_before_id"] is None
+    # Nothing recorded at all is also "everything is shown".
+    empty = listed(client, order="registered", month="2001-01")
+    assert empty["items"] == [] and empty["next_before_id"] is None
+
+
+def test_16_13_the_first_screenful_does_not_fetch_every_expense(client):
+    for _ in range(9):
+        make_expense(client)
+    page = listed(client, order="registered", limit=3)
+    assert len(page["items"]) == 3
+    assert page["total_count"] == 9
+
+
+def test_before_id_never_returns_the_cursor_row(client):
+    recorded = [make_expense(client).json()["id"] for _ in range(4)]
+    page = listed(client, order="registered", before_id=recorded[2])
+    assert ids(page) == [recorded[1], recorded[0]]
+
+
+def test_before_id_with_the_default_order_is_accepted_and_reports_no_cursor(client):
+    """The combination is defined and serves no criterion: it filters, and its
+    cursor is always `null` (Interface Contract, `before_id`)."""
+    recorded = [make_expense(client).json()["id"] for _ in range(4)]
+    page = listed(client, before_id=recorded[2], limit=1)
+    assert page["next_before_id"] is None
+    assert ids(page) == [recorded[1]]
+
+
+def test_the_default_order_is_unchanged_and_carries_a_null_cursor(client):
+    """Nothing that exists changed: no new parameter means today's ordering,
+    today's two fields, and a null cursor."""
+    older = make_expense(client, spent_on=last_month_day(2)).json()
+    newer = make_expense(client).json()
+    body = listed(client)
+    assert set(body) == {"items", "total_count", "next_before_id"}
+    assert ids(body) == [newer["id"], older["id"]]
+    assert body["total_count"] == 2
+    assert body["next_before_id"] is None
+
+
+def test_day_and_month_summaries_still_read_through_the_widened_list(client):
+    make_expense(client, amount_cop=1000)
+    make_expense(client, amount_cop=2000)
+    day = client.get("/api/summary/day").json()
+    assert day["total_cop"] == 3000 and day["expense_count"] == 2
+    assert client.get("/api/summary/month").json()["expense_count"] == 2
+
+
+# --- The month's category drill-down (Requirement 18) ----------------------
+
+
+def test_18_2_a_selected_category_shows_only_it_and_only_the_viewed_month(client):
+    wanted = make_expense(client, category_id=1, spent_on=last_month_day(4)).json()
+    make_expense(client, category_id=2, spent_on=last_month_day(4))  # other category
+    make_expense(client, category_id=1)  # same category, this month
+
+    body = listed(client, month=last_month(), category_id=1)
+    assert ids(body) == [wanted["id"]]
+    assert body["total_count"] == 1
+
+
+def test_18_2_an_unknown_category_is_an_empty_list_not_an_error(client):
+    make_expense(client)
+    body = listed(client, category_id=9999)
+    assert body["items"] == []
+    assert body["total_count"] == 0
+    assert body["next_before_id"] is None
+
+
+def test_18_2_an_archived_categorys_expenses_stay_reachable(client):
+    """3.4 keeps historical expenses attributed to an archived category and it
+    still appears in `by_category`, so the filter must not exclude it."""
+    created = client.post("/api/categories", json={"name": "Temporal"}).json()
+    expense = make_expense(client, category_id=created["id"]).json()
+    client.delete(f"/api/categories/{created['id']}", params={"confirm": "true"})
+
+    body = listed(client, category_id=created["id"])
+    assert ids(body) == [expense["id"]]
+    assert body["items"][0]["category_name"] == "Temporal"
+
+
+def test_18_13_a_filtered_category_list_is_ordered_by_the_date_it_is_dated_for(client):
+    """Deliberately *not* Historial's order: recorded newest-date-last, shown
+    newest-date-first."""
+    oldest = make_expense(client, category_id=1, spent_on=last_month_day(9)).json()
+    middle = make_expense(client, category_id=1, spent_on=last_month_day(5)).json()
+    newest = make_expense(client, category_id=1, spent_on=last_month_day(1)).json()
+
+    body = listed(client, month=last_month(), category_id=1)
+    assert ids(body) == [newest["id"], middle["id"], oldest["id"]]
+    assert body["next_before_id"] is None
+
+
+def test_18_3_total_count_ignores_before_id_limit_and_offset(client):
+    recorded = [make_expense(client, category_id=1).json()["id"] for _ in range(5)]
+    make_expense(client, category_id=2)
+
+    assert listed(client, category_id=1)["total_count"] == 5
+    assert listed(client, category_id=1, limit=2)["total_count"] == 5
+    assert listed(client, category_id=1, offset=3)["total_count"] == 5
+    assert listed(client, category_id=1, before_id=recorded[1])["total_count"] == 5
+
+
+def test_the_new_list_parameters_are_rejected_within_the_closed_reason_set(client):
+    cases = [
+        ({"category_id": 0}, ("category_id", "must_be_positive")),
+        ({"category_id": "abc"}, ("category_id", "not_an_integer")),
+        ({"before_id": 0}, ("before_id", "must_be_positive")),
+        ({"before_id": "x"}, ("before_id", "not_an_integer")),
+        ({"order": "fecha"}, ("order", "required")),
+    ]
+    for params, (field, reason) in cases:
+        response = client.get("/api/expenses", params=params)
+        assert response.status_code == 400, params
+        error = response.json()["error"]
+        assert error["code"] == "validation"
+        assert {"field": field, "reason": reason} in error["fields"], params

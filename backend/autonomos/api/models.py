@@ -109,7 +109,13 @@ class Expense(Strict):
 
 class ExpenseList(Strict):
     items: list[Expense]
+    # The rows matching date/month/category_id, ignoring `before_id`, `limit`
+    # and `offset` — stable while paging, and the count 18.3 renders.
     total_count: int
+    # The keyset cursor for the next page: an int when `order="registered"` and
+    # older rows remain, `null` otherwise — including always for `order="spent"`.
+    # `null` is the single "everything is shown" signal 16.9 renders against.
+    next_before_id: int | None
 
 
 class ExpenseCreate(Strict):
