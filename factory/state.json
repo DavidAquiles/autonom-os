@@ -4,9 +4,10 @@
   "factory_tools": "/home/david/Proyectos/software_factory/tools",
   "mode": "feature",
   "has_frontend": true,
-  "stage": "analyze",
+  "stage": "implement",
   "gates_passed": [
-    "kickoff"
+    "kickoff",
+    "approve_plan"
   ],
   "index": {
     "head": null,
@@ -125,6 +126,16 @@
       "id": "ad1949da6ed3aec94",
       "status": "completed",
       "spawned_at": "2026-08-10T19:16:12+00:00"
+    },
+    "backend": {
+      "id": "a2389f19914eb4425",
+      "status": "completed",
+      "spawned_at": "2026-08-10T19:42:56+00:00"
+    },
+    "frontend": {
+      "id": "a959a2fa4a45b840c",
+      "status": "spawned",
+      "spawned_at": "2026-08-10T19:42:56+00:00"
     }
   },
   "baseline_revision": "418d7b3da081d4871d654a6b91615c33d0d53bcd",
@@ -170,7 +181,32 @@
       "stage": "analyze",
       "at": "2026-08-10T19:16:15+00:00",
       "note": "stage architect -> analyze"
+    },
+    {
+      "stage": "analyze",
+      "at": "2026-08-10T19:41:37+00:00",
+      "note": "gate passed: approve_plan"
+    },
+    {
+      "stage": "implement",
+      "at": "2026-08-10T19:41:37+00:00",
+      "note": "stage analyze -> implement"
+    },
+    {
+      "stage": "implement",
+      "at": "2026-08-10T19:42:56+00:00",
+      "note": "backend: spawned"
+    },
+    {
+      "stage": "implement",
+      "at": "2026-08-10T19:42:56+00:00",
+      "note": "frontend: spawned"
+    },
+    {
+      "stage": "implement",
+      "at": "2026-08-10T19:49:05+00:00",
+      "note": "backend: completed"
     }
   ],
-  "updated_at": "2026-08-10T19:16:15+00:00"
+  "updated_at": "2026-08-10T19:49:05+00:00"
 }

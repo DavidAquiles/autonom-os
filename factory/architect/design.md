@@ -271,9 +271,14 @@ against a local SQLite file on the same machine.
 | `tests/test_expenses_api.py` | extended | Criterion-named tests for 16.2, 16.3, 16.4, 16.8, 16.9, 18.2, 18.13 and the unchanged default order. |
 
 Nothing else in the backend moves. `create`, `get`, `update` (`repo/expenses.py:126-233`)
-and their routes are untouched, and so are `day_summary` and `month_summary`,
-which both call `list_expenses` — so its signature change must keep every existing
-call working (`repo/expenses.py:272`).
+and their routes are untouched, and so are `day_summary` and `month_summary`.
+**`day_summary` is the only in-repo caller of `list_expenses`** — it calls it at
+`repo/expenses.py:272` and must keep working across the signature change.
+`month_summary` does **not** call it: it runs its own aggregate SQL throughout — a
+`SUM`/`COUNT` for the totals and two `GROUP BY` queries for `by_category` and
+`by_payment_method` (`repo/expenses.py:360-429` as committed; `:298-366` before
+this run's edits). It is therefore untouched by the signature change for a
+different reason, and the compatibility argument rests on one caller, not two.
 
 ### Frontend — two new screens, one moved component, eight changed files
 
@@ -346,11 +351,22 @@ endpoint not named below. Only the entries here are new or changed.
     behaviour, `repo/expenses.py:252-258` — documented, not introduced).
   - `category_id` — **new**, int ≥ 1, optional, default absent. Restricts the
     result to that category. Combines with `date`, with `month`, with neither, and
-    with either `order`. An id that does not exist, or belongs to an **archived**
-    category, is not an error: it yields `200` with `items: []` and
-    `total_count: 0`. Archived categories are *not* excluded — they still appear in
-    `by_category` (`repo/expenses.py:318-338`) and their expenses must remain
-    reachable.
+    with either `order`.
+    **Archived categories are never excluded.** The filter matches on
+    `expenses.category_id` alone and does not consult `categories.archived_at`. An
+    archived category still appears in `by_category` with a visible non-zero total
+    (`month_summary` joins `categories` without an archived predicate), so a filter
+    that returned nothing for it would contradict a figure already on the screen
+    the user tapped, and would put 18.2's "every expense of that category" out of
+    reach for exactly the categories whose history is finished and therefore most
+    likely to be looked back at. This is the same principle as
+    `_validate_fk(..., allow_archived=…)` on PATCH (`repo/expenses.py:67-99`):
+    archived means "not offered for new work", never "hidden from the record".
+    An **unknown** id — one matching no row in `categories` — is not an error
+    either: it yields `200` with `items: []` and `total_count: 0`, the same answer
+    as a real category that simply has no expenses in the queried scope. 18.10's
+    empty state is a better response than a 400 for a value the client can only
+    have obtained from the server's own `by_category`.
   - `order` — **new**, `"spent"` | `"registered"`, default `"spent"`.
     - `"spent"` → `ORDER BY spent_on DESC, created_at DESC, id DESC` — byte-for-byte
       today's ordering (`repo/expenses.py:264`). The default exists so no existing
@@ -691,9 +707,11 @@ Three mechanisms, each doing one job:
    source. Dropping the search half would reset the month and the selection on the
    delete path — see the client-side contract entry.
 
-`?categoria` is dropped whenever `?mes` changes (18.7). An unknown or archived
-`categoria` renders the empty-category state (18.10) rather than an error, because
-the server returns `items: []` for it.
+`?categoria` is dropped whenever `?mes` changes (18.7). An **archived** `categoria`
+lists its expenses normally — it is still in `by_category`, so it is still
+selectable and must still open. An **unknown** `categoria` renders the
+empty-category state (18.10) rather than an error, because the server returns
+`items: []` for it.
 
 ### Components
 
@@ -833,8 +851,9 @@ the artefact that is supposed to prove it did not.
 
 Backend regressions worth pinning alongside them: `GET /api/expenses` with no new
 parameters returns exactly today's ordering and today's two fields plus a `null`
-cursor (nothing that exists changed), and `day_summary`/`month_summary` still work
-through the widened `list_expenses` signature (`repo/expenses.py:272`).
+cursor (nothing that exists changed), and `day_summary` still works through the
+widened `list_expenses` signature (`repo/expenses.py:272`, the only in-repo call
+site).
 
 ---
 
