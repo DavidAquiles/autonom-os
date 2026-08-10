@@ -30,8 +30,10 @@ deleted — both fatal to 16.7/16.8.
 The read-only detail screen takes over the **existing** route
 `/finanzas/gasto/:id`, and the edit form moves to `/finanzas/gasto/:id/editar` —
 mirroring `/diario/:id` and `/diario/:id/editar` exactly (A25). That single move
-*is* B1: every list row already links to `/finanzas/gasto/${id}`, so no call site
-changes and none can be forgotten. B2 is solved by moving the viewed month and
+*is* B1: every list row in the application already links to
+`/finanzas/gasto/${id}`, so no row-level call site changes. The screenshot
+harness is the exception and must be repointed by hand — see F1 / § Screenshot
+recipes. B2 is solved by moving the viewed month and
 the selected category out of `useState` in `Mes.tsx:33` and into the URL as
 `?mes=&categoria=`, so a location entry carries them and browser back restores
 them for free.
@@ -152,10 +154,21 @@ a new contract path for one integer.
 
 This mirrors `/diario/:id` (read) and `/diario/:id/editar` (write) —
 `App.tsx:60-61` — which A25 asks for explicitly. Its decisive property is that
-**B1 is implemented by changing nothing at the call sites**: `Hoy.tsx:53` already
-links to `` `/finanzas/gasto/${e.id}` ``, and so will the two new lists, so
-"tapping an expense opens the detail" holds by construction and cannot be missed
-in one of three places.
+**B1 is implemented by changing nothing at any list call site**: `Hoy.tsx:53`
+already links to `` `/finanzas/gasto/${e.id}` ``, and so will the two new lists,
+so "tapping an expense opens the detail" holds by construction and cannot be
+missed in one of three places.
+
+That property covers application code only, and the claim must not be overstated:
+**the screenshot harness names the route directly and does not follow a link.**
+`tools/shots.mjs:210` captures `gasto-editar` at `/finanzas/gasto/1`, and `:213`,
+`:218` and `:224` capture three `gasto-eliminar*` states by clicking "Eliminar
+gasto" on that same URL. After this decision that URL renders the detail, which by
+constraint 35 and A31 has no delete control — so one recipe would silently
+photograph the wrong screen and three would fail to find their control. The four
+are enumerated and repointed in § Screenshot recipes. This is the only unaccounted
+caller; there is no vitest test mounting that route, and `VoiceContext` navigates
+only to `…/nuevo`.
 
 *Rejected: keeping `/finanzas/gasto/:id` as the form and adding
 `/finanzas/gasto/:id/ver`.* It diverges from Diario for no reason, and it leaves
@@ -183,8 +196,8 @@ Segments and parameter names are Spanish, per the rationale at
 
 ### KD-25 — Historial's pages live in the query cache, not in component state
 
-Historial uses TanStack Query's `useInfiniteQuery`, keyed on `['expenses', …]`,
-with `getNextPageParam` reading `next_before_id`.
+Historial uses TanStack Query's `useInfiniteQuery`, keyed on
+`['expense-list', …]`, with `getNextPageParam` reading `next_before_id`.
 
 *Rejected: `useState<Expense[]>` accumulating pages.* Component state dies when
 the detail screen unmounts Historial, so returning would show only the first page
@@ -194,9 +207,21 @@ re-renders at full length. It also gives 16.7's "append without returning to the
 top" and 16.9's "no control when none remain" (`hasNextPage` is exactly
 `next_before_id !== null`) without extra state.
 
-Consequence to honour: the new key must be added to `invalidateExpenseViews`
-(`api/queries.ts:42-45`), or 16.11 (a deleted expense leaves Historial) and 18.10
-(a category's list going empty) will need a manual refresh.
+Consequence to honour: the new key prefix must be added to
+`invalidateExpenseViews` (`api/queries.ts:42-45`), or 16.11 (a deleted expense
+leaves Historial) and 18.10 (a category's list going empty) will need a manual
+refresh.
+
+**Why the prefix is `expense-list` and not `expenses`.** TanStack matches keys by
+prefix, element by element. The existing single-expense key is `['expense', id]`
+(`api/queries.ts:31`) and the existing invalidation passes `['expense']`
+(`:42-45`). A list prefix of `['expenses', …]` differs from it by one character
+and matches nothing it does not intend to — which is correct, and is also exactly
+why it is dangerous: reading `invalidateQueries({queryKey:['expense']})` and
+concluding the list is covered is a one-glance mistake, and its failure mode is a
+deleted expense lingering in Historial, i.e. 16.11 silently unmet. A visibly
+different prefix removes the near-miss. Both entries stay in
+`invalidateExpenseViews`; neither implies the other.
 
 ### KD-26 — One expense row component, three content variants
 
@@ -270,27 +295,32 @@ Changed:
 - `routes/finanzas/Mes.tsx` — search-param state (KD-24), tappable category rows
   (18.1), the selected-category panel and its list (18.2–18.5), clearing on month
   change (18.7).
-- `routes/finanzas/GastoForm.tsx` — return targets only: `editar` mode closes and
-  saves back to the detail (17.7); deleting lands on the list, never the dead
-  detail (17.9). `nuevo` mode is untouched.
-- `api/queries.ts` — `keys.expenses(...)`, `useExpenseList` /
-  `useHistorial` (naming is the implementer's, matching the `useThing` habit), and
-  the new key added to `invalidateExpenseViews` (`:42-45`).
+- `routes/finanzas/GastoForm.tsx` — return targets only: in `editar` mode both
+  closing and saving **pop** back to the detail (17.7), and deleting replaces to
+  `estado.desde`, never the dead detail (17.9). `nuevo` mode is untouched.
+- `api/queries.ts` — `keys.expenseList(...)`, the list hooks (naming otherwise the
+  implementer's, matching the `useThing` habit), and the new key prefix added to
+  `invalidateExpenseViews` (`:42-45`). **The prefix is `['expense-list', …]`, not
+  `['expenses', …]`** — see KD-25's note on why one letter matters here.
 - `copy/es.ts` — `tabs.historial` plus one new exported object per new screen.
 - `api/types.ts` — `next_before_id` on the list response type.
 - `test/server.ts` — a `GET /api/expenses` stub route (the stub keys off the bare
   path, `:73`, so one entry covers every parameter combination).
+- **`tools/shots.mjs`** — four existing recipes are pointed at a route that will
+  no longer render what they photograph, and the three new screens have no
+  recipes. See § Screenshot recipes; this is not optional tidying, it is the gate
+  that enforces constraints 29–43.
 
 ### Data flow
 
 ```
-Historial          useInfiniteQuery(['expenses','registrados'])
+Historial          useInfiniteQuery(['expense-list','registrados'])
                      → GET /api/expenses?order=registered&limit=30[&before_id=]
                      → repo.list_expenses(order='registered', before_id=…)
                      → ORDER BY e.id DESC LIMIT 31         (rowid walk, no sort)
 
 Mes (categoría)    useMonthSummary(mes)     → GET /api/summary/month   [unchanged]
-                   useQuery(['expenses','mes',mes,categoria])
+                   useQuery(['expense-list','mes',mes,categoria])
                      → GET /api/expenses?month=YYYY-MM&category_id=N&limit=200
                      → ORDER BY e.spent_on DESC, e.created_at DESC, e.id DESC
 
@@ -331,9 +361,16 @@ endpoint not named below. Only the entries here are new or changed.
   - `before_id` — **new**, int ≥ 1, optional. Returns only rows with `id <
     before_id`, strictly. Order-independent by definition, and applied before
     ordering, `limit` and `offset`. It is the keyset cursor for
-    `order=registered`; it is accepted with `order=spent` and means the same
-    thing there, but no client sends that combination and `next_before_id` is
-    `null` for it.
+    `order=registered`.
+    **Status of `before_id` + `order="spent"`, stated so it is not ambiguous:**
+    the combination is *defined and accepted*, serves **no acceptance criterion**,
+    and is sent by **no client in this run**; `next_before_id` is always `null`
+    for it. It is kept rather than rejected for two reasons — defining it costs a
+    sentence whereas rejecting it costs a new validation reason outside the closed
+    set at `errors.py:16-49` (and matching Spanish copy, and a `copy/es.test.ts`
+    amendment), and it is R4's stated remedy if 18.2's cap ever has to be lifted.
+    Implementers must not build UI against it; the parameter-guard test pins that
+    it exists, and nothing more is expected of it.
   - `limit` — int 1..200, default 200. **Unchanged.**
   - `offset` — int ≥ 0, default 0. **Unchanged.** Not used together with
     `before_id` by any client.
@@ -425,15 +462,35 @@ the whole design — same convention as
   absent, with no spinner or trailing affordance, when it is `null` (constraint
   32); a designed empty state when nothing has ever been recorded (constraint 42).
   Rows carry amount, category, payment method and the date the expense is dated
-  for. The shell's capture bar and bottom nav are frame, not screen content, and
-  are not what constraint 34 forbids.
+  for. Pending and unreachable states follow the existing pattern and invent
+  nothing — see *Waiting and unreachable*, below.
+  **What constraint 34 does and does not reach.** It governs the screen's own
+  content. Historial inherits five operable things from the shell that are frame,
+  not screen: the **four-tab strip** and the **AppBar's "Ajustes" link**
+  (`App.tsx:79-88`, the link at `:81`), the **`ReachabilityBanner`** when the
+  server is unreachable (`:94`), the **capture bar** and the **bottom nav**
+  (`Screen.tsx:31-32`). All five are inherited by Hoy and Mes on identical terms
+  today. The reading is forced rather than chosen: constraint 29, in the same
+  document, *requires* an operable four-tab strip on Historial, so a literal 34
+  cannot be satisfied by any implementation. The enumeration is complete here so a
+  QA pass reading 34 literally has nothing unexcused; PM ratifies the reading at
+  the gate.
   `requirements: 16.1, 16.5, 16.6, 16.7, 16.9, 16.10`
-- **Historial's pages survive leaving the screen** — the loaded pages live in the
-  query cache (KD-25), so returning from a detail shows the same rows already
-  loaded, in the same order, at the same scroll offset. The scroll container is
-  `<main>` inside `Screen` (`Screen.tsx:30`), not the window, so the offset must be
-  captured and restored explicitly; the mechanism is the implementer's, the
-  behaviour is not. `requirements: 16.7, 17.8, 18.9`
+- **Every list returns in the state it was left in** — 17.8 names three surfaces —
+  **Hoy, Historial and the filtered month list** — and the obligation is the same
+  on all three. Two parts, because two things are lost:
+  1. *The rows.* Historial's loaded pages live in the query cache (KD-25), so a
+     user who paged back six months finds them still there. Hoy and the filtered
+     list are single queries and are restored by the cache with no extra work.
+  2. *The scroll offset.* This is **not** restored by a history pop in this app:
+     the scroll container is `<main className={s.scroll}>` inside `Screen`
+     (`Screen.tsx:30`), not the document, so neither the browser's history scroll
+     restoration nor React Router touches it. The offset must therefore be captured
+     on leaving and reapplied after the restored rows have rendered, **on all three
+     lists** — Hoy is not exempt, and a long day's ledger scrolls. One mechanism,
+     applied once at the `Screen` scroll container, is expected rather than three
+     screen-local copies; which mechanism is the implementer's (Deferred 3), that
+     it covers all three is not. `requirements: 16.7, 17.8, 18.9`
 - **Every expense row anywhere links to `/finanzas/gasto/:id`** — Hoy, Historial
   and the filtered category list, through the single `ExpenseLedger` (KD-26). That
   route renders the read-only detail. No list links to `…/editar`. *(B1.)*
@@ -453,15 +510,53 @@ the whole design — same convention as
   `stamp`/`clockTime` and `copy/es.ts` — no new formatter, renderer or copy
   mechanism (A40).
   `requirements: 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.10, 17.11`
-- **Leaving the detail and leaving the form** — closing the detail returns to the
-  list the user arrived from, in the same tab, month, category selection and
-  position (17.8): a history pop, so the previous location entry — which carries
-  `?mes=` and `?categoria=` — is restored intact. Saving the edit, or closing it
-  without saving, returns to that expense's detail showing stored values (17.7),
-  mirroring `Entrada.tsx:131`. Deleting from within the edit form must not land on
-  the detail of a deleted record (17.9): it navigates to the originating list,
-  carried forward as a router-state hint from the row that opened the detail, with
-  `/finanzas` as the fallback. `requirements: 17.7, 17.8, 17.9`
+- **Leaving the detail and leaving the form** — one history discipline, stated in
+  full because it is the part an implementer would otherwise have to invent:
+
+  | step | navigation | resulting stack |
+  | --- | --- | --- |
+  | list → detail | push | `[lista, detalle]` |
+  | detail → editar | push | `[lista, detalle, editar]` |
+  | editar → save **or** close without saving | **pop** | `[lista, detalle]` |
+  | detail → close | **pop** | `[lista]` |
+  | editar → delete | replace, to `estado.desde` | `[lista]` |
+
+  Closing the detail is a pop, not a navigation to a fixed path, because only the
+  previous *location entry* carries `?mes=` and `?categoria=` (17.8, 18.9). And
+  **both** ways of leaving the edit form are the same pop — this is where the
+  journal's pattern must not be copied literally. `Entrada.tsx:41` pushes into the
+  editor and `Entrada.tsx:131` *replaces* on save, giving
+  `[lista, detalle, editar] → [lista, detalle, detalle]`; the journal survives that
+  because its read screen closes to a fixed path (`Entrada.tsx:34`, `back="/diario"`),
+  which this detail cannot do. Replacing here would leave a duplicate detail entry,
+  so the next close would land the user on the detail he is already looking at.
+  Popping instead satisfies 17.7 in one action for both branches, and the detail
+  shows stored values because `useUpdateExpense` invalidates the shared
+  `keys.expense(id)` (`api/queries.ts:180`, KD-27). If there is no entry to pop —
+  a hand-typed `…/editar` URL, which no affordance produces — fall back to
+  `navigate('/finanzas/gasto/:id', { replace: true })`.
+
+  Deleting from within the edit form must not land on the detail of a deleted
+  record (17.9). It navigates to **`estado.desde`**, a router-state hint threaded
+  from the row that opened the detail, with `/finanzas` as the fallback.
+  **`desde` carries pathname *and* search string** — `/finanzas/mes?mes=2026-07&categoria=3`,
+  not `/finanzas/mes`. A pathname alone would drop the user on the current month
+  with no selection, which is precisely the reset B2 and 18.9 exist to remove,
+  arriving by the one route they do not govern. (The name is Spanish for the same
+  reason segments and search params are, even though router state is not a URL: it
+  is the one new named piece of navigation state this run introduces.)
+  `requirements: 17.7, 17.8, 17.9`
+- **Waiting and unreachable states on the two new lists** — no invention required
+  and none permitted. Pending follows the one in-repo pattern: the `.skeleton`
+  paragraph with `common.cargando` (`Mes.tsx:36`, `Hoy.tsx:17`). Unreachable is
+  already handled for both, because they are tabbed routes and inherit
+  `ReachabilityBanner` from `FinanzasTabs` (`App.tsx:94`, `:128-142`) — nothing new
+  is built for it. The one case with no precedent is a **"ver más" fetch in
+  flight**: it must not become the endless bottom spinner the visual direction
+  names as a thing to avoid, so the control itself carries the in-flight state and
+  stays in place. Run 01 constraints 16 and 18 continue to bind.
+  `requirements: none — internal; the loading and unreachable behaviour behind
+  16.7 and 18.2 on surfaces the spec does not separately enumerate.`
 - **The month view's category drill-down** — every `by_category` row selectable in
   one interaction and visibly tappable, with the payment-method rows visibly not
   (18.1, A35, constraint 39); a selection showing the category name, its total for
@@ -482,9 +577,11 @@ the whole design — same convention as
   detail round trip returns to the same month and the same category rather than a
   reset current month. *(B2, A39.)* `requirements: 18.9`
 - **Expense mutations invalidate the new list key** — `invalidateExpenseViews`
-  (`api/queries.ts:42-45`) must also invalidate `['expenses']`, so a create,
-  edit or delete is reflected in Historial and in a filtered category list without
-  a manual refresh (Run 01 criterion 4.6 continues to bind).
+  (`api/queries.ts:42-45`) must also invalidate `['expense-list']`, **in addition
+  to** the `['expense']` it already invalidates — the two prefixes do not match
+  each other and neither implies the other (KD-25). Without it a create, edit or
+  delete is not reflected in Historial or in a filtered category list without a
+  manual refresh (Run 01 criterion 4.6 continues to bind).
   `requirements: 16.3, 16.11, 18.10`
 - **Spanish copy for the new surfaces** lives in `copy/es.ts` as new exported
   objects; components hold no string literals. New strings are needed for: the tab
@@ -580,14 +677,19 @@ Three mechanisms, each doing one job:
 1. **Search params on `/finanzas/mes`** (`?mes`, `?categoria`) — the month and the
    selected category. They are in the location, so a history entry carries them and
    any return to that entry restores them. This is the whole of B2 and 18.9.
-2. **A history pop for "back"** — `FormBar`'s `back` prop already accepts a number
-   and passes it to `navigate` (`Screen.tsx:58-66`), so the detail can close by
-   popping. Popping is what restores the *previous entry*, which is the only thing
-   that knows the tab and the search params without re-deriving them (17.8).
-3. **A router-state hint `from`, threaded row → detail → form** — the originating
-   list's path, used for exactly one thing: where to land after deleting from the
-   form, since the detail entry behind it is dead (17.9). It is a hint with a
-   `/finanzas` fallback and never a data source.
+2. **A history pop for every "back" and for both exits from the edit form** —
+   `FormBar`'s `back` prop already accepts a number and passes it to `navigate`
+   (`Screen.tsx:58-66`), so both screens close by popping. Popping is what restores
+   the *previous entry*, which is the only thing that knows the tab and the search
+   params without re-deriving them (17.8). The full push/pop table, and why saving
+   the edit must pop rather than replace the way `Entrada.tsx:131` does, is in the
+   client-side contract under *Leaving the detail and leaving the form*.
+3. **A router-state hint `estado.desde`, threaded row → detail → form** — the
+   originating list's **pathname plus its search string**, used for exactly one
+   thing: where to land after deleting from the form, since the detail entry behind
+   it is dead (17.9). It is a hint with a `/finanzas` fallback and never a data
+   source. Dropping the search half would reset the month and the selection on the
+   delete path — see the client-side contract entry.
 
 `?categoria` is dropped whenever `?mes` changes (18.7). An unknown or archived
 `categoria` renders the empty-category state (18.10) rather than an error, because
@@ -597,11 +699,11 @@ the server returns `items: []` for it.
 
 | Component | Where | Notes |
 | --- | --- | --- |
-| `ExpenseLedger` | `routes/finanzas/ExpenseLedger.tsx` (moved) | KD-26. One row treatment for three lists (constraint 30). Links to `/finanzas/gasto/:id` with the `from` hint. |
+| `ExpenseLedger` | `routes/finanzas/ExpenseLedger.tsx` (moved) | KD-26. One row treatment for three lists (constraint 30). Links to `/finanzas/gasto/:id` with the `estado.desde` hint (path + search). |
 | `Historial` | `routes/finanzas/Historial.tsx` | `useInfiniteQuery`; order statement; show-more; empty state. Reuses `Finanzas.module.css`. |
 | `GastoDetalle` | `routes/finanzas/GastoDetalle.tsx` + own CSS module | `useExpense`; `Screen`+`FormBar`; edit action; not-found state. |
 | `Mes` | `routes/finanzas/Mes.tsx` (changed) | Search params; tappable `by_category` rows; selected-category panel + list; clear control. |
-| `GastoForm` | `routes/finanzas/GastoForm.tsx` (changed) | `editar` mode only: `back` and both success paths point at the detail; delete points at `from`. `nuevo` untouched. |
+| `GastoForm` | `routes/finanzas/GastoForm.tsx` (changed) | `editar` mode only: `back` and save both **pop** to the detail; delete replaces to `estado.desde`. `nuevo` untouched. |
 
 ### CSS and the red allowlist
 
@@ -612,6 +714,66 @@ allowlisted `Button.module.css`, and 17.11's not-found state is a plain designed
 state, not an alarm. Any new module reaching for red is a design error, not an
 allowlist gap. The new modules must also carry no literal colours
 (`estilos.test.ts:37-51`) — tokens only.
+
+### Screenshot recipes (`frontend/tools/shots.mjs`)
+
+Constraints 29–43 are declared checkable "by screenshot at a 390×844 viewport, and
+will be checked that way" (`visual-direction.md:54-55`), and `shots.mjs` is that
+check (`conventions.md:310-311`, `:398-400`). It is therefore part of this
+feature's deliverable, not housekeeping — and it is the one caller KD-23 breaks.
+
+**Four existing recipes must be repointed.** All four name `/finanzas/gasto/1`
+directly, which after KD-23 renders the detail:
+
+| recipe | line | today | after |
+| --- | --- | --- | --- |
+| `gasto-editar` | `:210` | `/finanzas/gasto/1`, `scroll: 900` | `/finanzas/gasto/1/editar`, `scroll: 900` |
+| `gasto-eliminar` | `:212-215` | clicks "Eliminar gasto" at `/finanzas/gasto/1` | same click at `/finanzas/gasto/1/editar` |
+| `gasto-eliminar--boton-pulsado` | `:216-221` | as above | as above |
+| `gasto-eliminar--boton-hover` | `:222-227` | as above | as above |
+
+Left unrepointed, `gasto-editar.png` silently becomes a picture of the detail
+screen while still being reviewed as the form, and the three delete recipes throw
+`no control labelled "Eliminar gasto"` (`shots.mjs:891`) — one failure that is
+loud and one that is not. The loud three are the lesser problem.
+
+**New recipes, one per constraint that has no other evidence.** The harness
+vocabulary already covers every case: `stubs` are keyed on the bare pathname
+(`shots.mjs:831`), so one `'/api/expenses'` entry serves any query string, exactly
+as `test/server.ts:73` does.
+
+- `finanzas-historial` — `/finanzas/historial`, live. Carries constraints 29 (four
+  tabs, no truncation — this is R2's measurement), 30 (row treatment against
+  `finanzas-hoy`), 31 (the ordering statement above the first row), 33 (flat list)
+  and 34 (nothing else operable).
+- `finanzas-historial--desplazado` — same, `scroll: 520`, following the
+  `finanzas-mes--desplazado` precedent (`:126`). This is where a date heading or a
+  day separator would show up if one crept in (constraint 33).
+- `finanzas-historial--ver-mas` — stubbed with `next_before_id: null` on the last
+  page, to capture the **absence** of the control (constraint 32 requires both
+  states to be "distinguishable on sight", so both must be photographed; the
+  live shot above supplies the present state).
+- `finanzas-historial-vacio` — stubbed `{items: [], total_count: 0, next_before_id: null}`
+  (constraint 42, 16.10).
+- `gasto-detalle` — `/finanzas/gasto/1`, live: constraints 35 (no form), 36 (journal
+  read frame), 37 (two labelled dates, unclamped description), 43 (nothing reveals
+  source).
+- `gasto-detalle--sin-descripcion` and `gasto-detalle--editado` — stubbed single
+  expenses, one with `description: null` (17.3) and one with `updated_at` later than
+  `created_at` (17.5, constraint 38's neutrality).
+- `finanzas-mes--categoria` — `/finanzas/mes?categoria=1`: constraints 39 (tappable
+  category row against non-tappable payment row), 40 (both totals distinguishable),
+  41 (the clear control visible without scrolling).
+- `finanzas-mes--categoria-vacia` — stubbed empty filtered list (constraint 42,
+  18.10).
+- `finanzas-historial--320` — the narrow-width check the matrix already applies to
+  every screen that can crowd (`:579-583`). The four-tab strip is this run's most
+  likely overflow, and the audit's `OVERFLOW` flag is what catches it.
+
+Hover/focus/active variants of the new tappable category row should follow the
+existing `finanzas-hoy--fila-*` family (`:85-99`); which of the three states are
+worth capturing is the implementer's judgement, and the row shares
+`Finanzas.module.css`'s `.row` states with Hoy either way.
 
 ---
 
@@ -637,6 +799,11 @@ undone in a place the first does not look:
    in a later run from quietly re-pointing at the form, which is precisely how B1
    would regress — invisibly, with every other test still green.
 
+The third pinning is visual and is not a vitest test: the four repointed recipes in
+§ Screenshot recipes. `gasto-editar.png` is reviewed as a picture of the expense
+form; if it is not repointed it becomes a picture of the detail and B1 regresses in
+the artefact that is supposed to prove it did not.
+
 **B2 — the viewed month survives navigation.** Three assertions:
 
 1. Mounting at `/finanzas/mes?mes=2026-07` renders July, not the current month —
@@ -656,14 +823,18 @@ through the widened `list_expenses` signature (`repo/expenses.py:272`).
 
 ## Risks / Tradeoffs
 
-**R1 — "Same position in the list" (17.8) has no free implementation.** The app
-scrolls inside `<main className={s.scroll}>` (`Screen.tsx:30`), not the document,
-so neither the browser's history scroll restoration nor React Router restores it.
-KD-25 gets the *list length* back (the pages are cached), which is the larger half;
-the *offset* still has to be captured on leave and reapplied on return, after the
-cached pages have rendered. This is the single most likely criterion to be quietly
-failed, because the screen will look right in every manual test that does not
-scroll first. QA should test it scrolled to page three, not at the top.
+**R1 — "Same position in the list" (17.8) has no free implementation, on any of
+the three lists.** The app scrolls inside `<main className={s.scroll}>`
+(`Screen.tsx:30`), not the document, so neither the browser's history scroll
+restoration nor React Router restores it. KD-25 gets Historial's *list length* back
+(the pages are cached), which is the larger half of the problem *there*; the
+*offset* still has to be captured on leave and reapplied on return, after the
+restored rows have rendered — and that half applies equally to Hoy and to a
+filtered category list, neither of which has a paging mechanism to distract from
+it. This is the single most likely criterion to be quietly failed, because every
+one of the three screens will look right in any manual test that does not scroll
+first. QA should test all three scrolled — Historial at page three, Hoy on a long
+day, a filtered category on a busy month — not at the top.
 
 **R2 — Four tabs at 390 px (constraint 29).** `Hoy · Este mes · Historial ·
 Análisis` at 16 px semibold with the current `.tab` padding of 9 px each side and a
@@ -706,7 +877,7 @@ identical, which is what constraint 30 wants and also what makes the difference
 invisible. 16.6's on-screen statement of Historial's order is the mitigation, and
 it is a criterion rather than a nicety for exactly this reason.
 
-**R7 — Cache invalidation reaches further than before.** Adding `['expenses']` to
+**R7 — Cache invalidation reaches further than before.** Adding `['expense-list']` to
 `invalidateExpenseViews` means every create, edit and delete now also refetches
 every loaded Historial page (TanStack Query refetches all pages of an infinite
 query on invalidation). Correct, and cheap against local SQLite, but it is more
@@ -727,11 +898,15 @@ Left to the Implementers, inside the structure above:
    one row, or a render slot. One implementation of the row is the binding part
    (KD-26); its parameterisation is not.
 3. **How the scroll offset is captured and restored** (R1) — session storage keyed
-   by the router location key, a ref plus a layout effect, or otherwise. The
-   behaviour is required; the mechanism is not specified.
-4. **Push vs replace when switching between categories** in the month view. 18.5's
-   on-screen clear control must exist regardless of history behaviour, and 18.9
-   must hold; whether switching category pushes an entry is otherwise free.
+   by the router location key, a ref plus a layout effect, or otherwise. One
+   mechanism covering all three lists is the binding part; which mechanism is not.
+4. **Push vs replace when switching between categories** in the month view — and
+   *only* that. 18.5's on-screen clear control must exist regardless of history
+   behaviour, and 18.9 must hold; whether switching from one category to another
+   pushes an entry is otherwise free. The push/pop discipline for the *detail and
+   edit round trip* is **not** deferred — it is specified in the client-side
+   contract, because copying `Entrada.tsx`'s replace-on-save here produces a
+   duplicate detail entry.
 5. **The detail screen's title text and layout** — constraint 36 fixes the frame
    and constraints 35/37/38 fix the content rules; the arrangement inside is the
    frontend's craft, judged at mockup approval against the "small receipt" Feel &
@@ -740,8 +915,9 @@ Left to the Implementers, inside the structure above:
    strings must exist and where they live; the words are the frontend's, carried
    from the mockups, within `es.test.ts`'s English-word ban and the app's stated
    tone (`es.ts:6-7`).
-7. **Query-key shape** under `['expenses', …]` — only the prefix matters, because
-   invalidation keys off it.
+7. **Query-key shape** under `['expense-list', …]` — the segments after the prefix
+   are free; the prefix itself is not, because invalidation keys off it and because
+   it must stay visibly distinct from `['expense', id]` (KD-25).
 
 ### Open items resolved before finalizing (not guessed)
 
@@ -759,11 +935,36 @@ Left to the Implementers, inside the structure above:
   one wrinkle is R3.
 - **Does the detail need new data?** No. `GET /api/expenses/{expense_id}` already
   returns every field 17.2–17.5 needs and omits the one 17.10 forbids.
-- **Constraint 34 ("nothing else operable") versus constraints 9/11 (capture bar
-  and bottom nav from every screen).** Reconciled rather than escalated: the capture
-  bar and bottom nav belong to `Screen`, the frame every tabbed route inherits
-  (`Screen.tsx:14-35`, `App.tsx:76-98`), and constraint 34 governs the screen's own
-  content — the same reading under which Hoy and Mes already comply. Stated so QA
-  does not read it as a violation.
+- **Constraint 34 ("nothing else operable") versus the rest of the constraint
+  set.** Reconciled rather than escalated, and the reconciliation is forced rather
+  than chosen: constraint 29 in the same document requires an operable four-tab
+  strip *on Historial*, so no implementation can satisfy a literal 34. Constraint 34
+  therefore governs the screen's own content, and the operables Historial inherits
+  from `Screen`/`FinanzasTabs` are frame — the **four-tab strip**, the **AppBar's
+  "Ajustes" link** (`App.tsx:79-88`, link at `:81`), the **`ReachabilityBanner`**
+  (`:94`), the **capture bar** and the **bottom nav** (`Screen.tsx:14-35`,
+  `:31-32`). All five are inherited by Hoy and Mes on identical terms today. The
+  full enumeration is in the client-side contract so a QA pass reading 34 literally
+  has nothing unexcused. **This reading is the Architect's and is going to PM for
+  ratification at Approve Plan** — the enumeration does not depend on the outcome,
+  but the reading does, and it is not the Architect's constraint to reinterpret
+  unilaterally.
 
-Nothing remains open. No question needed escalation to the human in this run.
+### Still open — going to the human at Approve Plan, not resolved here
+
+Two items were adjudicated by the artifact-analyst as belonging to the human, and
+the coordinator has routed them there. They are listed so this document does not
+read as if everything were settled:
+
+- **18.2 says "every expense of that category"; KD-21 caps the list at 200** with
+  no way to reach the rest (R4, F3). Left exactly as designed. If the human rules
+  that "every" binds literally, the remedy is already on the endpoint — page it
+  with `before_id` the way Historial does — and this design comes back for that
+  change.
+- **A save that changes nothing marks the expense "edited"** (R3, F4). Left exactly
+  as designed. 17.5 states only the positive direction, so nothing is violated, but
+  A30 sold this indication to the human as a fact that *explains* the record, and a
+  human may want it tightened.
+
+Nothing else remains open. No question needed escalation from the Architect before
+this document was written.
