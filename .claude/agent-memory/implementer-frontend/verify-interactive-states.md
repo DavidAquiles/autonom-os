@@ -40,6 +40,16 @@ run still passed. Run `node tools/seed.mjs` before the matrix, read the `!`
 warning lines in the log, and prefer `forceText:` (it can find an element by
 `aria-label`, so it reaches inputs too) over `force:` for anything load-bearing.
 
+**A state can also be unreachable because of the DATA, not the CSS — and then a
+naive shot photographs a different state under the right name.** The retry
+control's `disabled` half only exists when its query already has rows: TanStack
+sends a query with `data === undefined` back to `pending` on refetch, so on an
+empty screen the retry shows the `.skeleton` instead. `shots.mjs` gained
+`stubFrom: n` (let request 1 through live, stub from the nth) and
+`slowFrom: { path: n }` (hang from the nth) for exactly this: load real data,
+then fail the *refetch*. Same trick captures "an error on top of what is already
+on screen", which is what the approved mockups actually draw.
+
 **"This environment cannot produce that state" needs one more attempt before it
 goes in a note.** The Phase 2 note declared the microphone-denial screen (8.5)
 uncapturable in headless Chromium; the Reviewer inherited the claim, and QA then
