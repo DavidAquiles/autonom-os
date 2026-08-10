@@ -1,8 +1,10 @@
 # Autonom-OS — Product Spec (Run 02, brownfield feature)
 
-**Status: DRAFT — pending Kickoff gate.** One open question is genuinely open
-(§ Open Questions); everything else I could responsibly decide is recorded in
-§ Assumptions, which is where the human exercises control at the plan gate.
+**Status: FINAL.** Kickoff gate passed; the one escalated question was answered
+and is folded in (§ Open Questions, and Non-Goal 12). Everything else I could
+responsibly decide is recorded in § Assumptions, which is where the human
+exercises control at the Approve Plan gate — read § Assumptions and § Behaviour
+That Changes before § Acceptance Criteria.
 
 This spec is **additive** to `factory/runs/01-greenfield/pm/spec.md`, which
 remains in force. Requirements 1–15 and their criteria are unchanged and are not
@@ -75,9 +77,21 @@ Concrete things this pass will explicitly not do.
 10. **No export of a filtered view.** Export stays whole-database, as it is.
 11. **No charts.** The month breakdown bars are the only proportional display in
     Finanzas and gain nothing here.
-12. **No change to Diario, Gimnasio, voice capture, or Análisis.** (Whether to
-    fix Diario's known list cap alongside this is OPEN QUESTION 1 — until it is
-    answered, it is out of scope.)
+12. **No change to Diario, Gimnasio, voice capture, or Análisis.** In
+    particular, **Diario's journal list cap stays unfixed in this run — decided
+    at the Kickoff gate, not overlooked.** The journal "Todo" tab shows only the
+    50 most recent entries with no way to reach older ones
+    (`frontend/src/api/queries.ts:197`, `limit: 50`); the server-side cursor that
+    would page it already exists (`backend/autonomos/api/journal.py:21-32`) and
+    the Spanish copy for the control is already written and rendered nowhere
+    (`frontend/src/copy/es.ts:118`, `cargarMas`). This is Run 01's deferred
+    finding **F6** (`factory/runs/01-greenfield/state.json`,
+    `reviewer/review.md:163-170`, `walkthrough.md:120`). I raised it as OQ1
+    because Historial is being built with exactly the fix F6 needs, next door and
+    cheap. **David chose to leave it:** this run stays exactly on the ask, F6
+    remains a deferred finding and becomes a candidate follow-up run, and nothing
+    is lost in the meantime because export still contains every entry. A later
+    run should treat 16.7–16.9 as the pattern to copy.
 13. **No exposure of `source`.** Nothing on any new screen reveals whether an
     expense was spoken or typed; Run 01 criterion 9.5 continues to bind.
 14. **No change to the three bottom-nav destinations.** Historial is a tab inside
@@ -332,21 +346,18 @@ changes behaviour David uses every day.
 
 ## Open Questions
 
-**One.** Everything else is recorded above as an Assumption.
+**None.**
 
-**OQ1 — Should Diario's list cap be fixed in the same pass?**
+One question was escalated at Kickoff and has been answered.
 
-Historial is being built so that every expense is reachable, a screenful at a
-time (16.7–16.9). The journal list has the same problem and does not have that
-fix: it shows the **50 most recent entries and no way to see older ones**. That
-was found in the previous run and deferred. Once Historial exists, the pattern
-for fixing Diario is the same pattern, next door, and cheap — but it is a
-different module and you did not ask for it, so I will not quietly widen the
-scope of your ask.
+**OQ1 — Should Diario's list cap (Run 01 finding F6) be fixed in the same pass?
+— Answered: no. Option B, leave it.** David's reasoning as given: the run stays
+exactly on the ask; F6 stays a deferred finding and can be a follow-up run later;
+nothing is lost because export still contains everything. Folded into Non-Goal 12
+with the citations, so a later reader can see it was considered and consciously
+excluded at a gate rather than missed.
 
-- **Option A — fix it now.** Diario's "Todo" tab gets the same "show more"
-  treatment in this run. Small extra scope; the whole record becomes reachable
-  everywhere at once.
-- **Option B — leave it.** This run stays exactly on the ask. Journal entries
-  older than your 50 most recent stay unreachable in the UI until a later run.
-  (They are never lost, and export still contains everything.)
+The uncertainties I chose not to escalate are recorded above as Assumptions.
+**A24** (every expense row now opens the detail view rather than the edit form,
+including in Hoy) is by some distance the one most worth a second look at Approve
+Plan, followed by **A30** and **A31**.

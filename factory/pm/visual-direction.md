@@ -1,7 +1,8 @@
 # Autonom-OS — Visual Direction (Run 02, brownfield feature)
 
-**Status: DRAFT — pending Kickoff gate.** Nothing about the look is open; the one
-open question in `spec.md` (OQ1) is functional scope, not visual.
+**Status: FINAL.** Kickoff gate passed. Nothing about the look was open; the one
+question escalated at Kickoff (`spec.md` OQ1) was functional scope and was
+answered "leave it", with no visual consequence for the screens below.
 
 This is the brief, not the design. Design Constraints are enforced — Reviewer and
 QA hold the built UI to them, with real screenshots at 390×844. Feel & Tone is
@@ -182,6 +183,6 @@ search icon and month chips; an admin table with pagination controls.
 **None.** The ask specifies the look implicitly by being an extension of an
 existing, approved product; every remaining decision is the frontend's craft
 inside constraints 1–43. Visual decisions I took rather than escalated are
-recorded in `spec.md` as assumptions A23, A24, A27, A30, A31 and A33. The single
-open question in this run (OQ1) concerns functional scope and has no visual
-consequence for the screens described here.
+recorded in `spec.md` as assumptions A23, A24, A27, A30, A31 and A33. The one
+question escalated in this run (OQ1) concerned functional scope, was answered at
+the Kickoff gate, and had no visual consequence for the screens described here.

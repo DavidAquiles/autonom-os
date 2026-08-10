@@ -5,7 +5,9 @@
   "mode": "feature",
   "has_frontend": true,
   "stage": "pm",
-  "gates_passed": [],
+  "gates_passed": [
+    "kickoff"
+  ],
   "index": {
     "head": null,
     "built_at": null,
@@ -113,7 +115,13 @@
     "review_impl": 3,
     "qa_impl": 3
   },
-  "agents": {},
+  "agents": {
+    "pm": {
+      "id": "abcf230a0b800907b",
+      "status": "completed",
+      "spawned_at": "2026-08-10T18:54:54+00:00"
+    }
+  },
   "baseline_revision": "418d7b3da081d4871d654a6b91615c33d0d53bcd",
   "blockers": [],
   "deferred": [],
@@ -132,7 +140,17 @@
       "stage": "pm",
       "at": "2026-08-10T18:46:29+00:00",
       "note": "stage context -> pm"
+    },
+    {
+      "stage": "pm",
+      "at": "2026-08-10T18:54:54+00:00",
+      "note": "pm: completed"
+    },
+    {
+      "stage": "pm",
+      "at": "2026-08-10T19:04:01+00:00",
+      "note": "gate passed: kickoff"
     }
   ],
-  "updated_at": "2026-08-10T18:46:29+00:00"
+  "updated_at": "2026-08-10T19:04:01+00:00"
 }
