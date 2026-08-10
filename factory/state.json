@@ -4,7 +4,7 @@
   "factory_tools": "/home/david/Proyectos/software_factory/tools",
   "mode": "feature",
   "has_frontend": true,
-  "stage": "review",
+  "stage": "qa",
   "gates_passed": [
     "kickoff",
     "approve_plan",
@@ -333,7 +333,12 @@
       "stage": "review",
       "at": "2026-08-10T21:51:52+00:00",
       "note": "stage implement -> review"
+    },
+    {
+      "stage": "qa",
+      "at": "2026-08-10T21:59:59+00:00",
+      "note": "stage review -> qa"
     }
   ],
-  "updated_at": "2026-08-10T21:59:54+00:00"
+  "updated_at": "2026-08-10T21:59:59+00:00"
 }
