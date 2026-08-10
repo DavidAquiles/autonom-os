@@ -17,6 +17,8 @@ export const nav = {
 export const tabs = {
   hoy: 'Hoy',
   mes: 'Este mes',
+  // A40: the user's own word for this list, used verbatim as the tab label.
+  historial: 'Historial',
   analisis: 'Análisis',
   todo: 'Todo',
   porFecha: 'Por fecha',
@@ -56,6 +58,48 @@ export const mes = {
   vacioTitulo: (mesNombre: string) => `En ${mesNombre} no hay gastos anotados.`,
   vacioCuerpo:
     'Cuando anotes el primero, aquí verás en qué se fue el mes y cómo lo pagaste.',
+  // 18.10 / constraint 42. The name is absent only for an id that names no
+  // category the app can see — an unknown id, or an archived one with nothing
+  // in the viewed month. Then the sentence says "esa categoría" rather than
+  // inventing a name.
+  categoriaVaciaTitulo: (mesNombre: string, categoria: string | null) =>
+    categoria
+      ? `En ${mesNombre} ya no queda nada en ${categoria}.`
+      : `En ${mesNombre} ya no queda nada en esa categoría.`,
+  categoriaVaciaCuerpo:
+    'Puede que lo hayas borrado o que lo hayas pasado a otra categoría. El resto del mes sigue completo.',
+} as const
+
+/**
+ * 16.6 / constraint 31: the ordering statement is one line, stating the order
+ * and pre-empting the "these dates are broken" reading in the same breath. No
+ * count readout — "mostrando 50 de 431" is on the visual brief's Avoid list.
+ */
+export const historial = {
+  orden: 'En el orden en que los anotaste, no por su fecha.',
+  verMas: 'Ver gastos más antiguos',
+  vacioTitulo: 'Todavía no has anotado ningún gasto.',
+  vacioCuerpo: 'Cuando anotes el primero, aquí van quedando todos, del último al primero.',
+} as const
+
+/**
+ * The read-only detail (17.2-17.6, 17.11). The two timestamps are footnote
+ * prose rather than rows in the facts list: constraint 37 forbids the dated-for
+ * date and the recorded moment reading as one value or a range, and stacking
+ * them as adjacent rows is the arrangement that invites exactly that.
+ */
+export const gastoDetalle = {
+  titulo: 'Gasto',
+  metodo: 'Método de pago',
+  fechaGasto: 'Fecha del gasto',
+  anotado: (cuando: string) => `Anotado el ${cuando}.`,
+  // 17.5 / constraint 38: a fact about the record, in the same ink and the same
+  // size as "Anotado el…". The timestamp is what lets a surprising mark be
+  // reconciled against "oh, that was when I opened it yesterday" (R3).
+  editado: (cuando: string) => `Editado el ${cuando}.`,
+  noExisteTitulo: 'Este gasto ya no existe.',
+  noExisteCuerpo:
+    'Puede que lo hayas borrado desde otra pantalla. En la lista está todo lo que sí tienes anotado.',
 } as const
 
 export const gasto = {

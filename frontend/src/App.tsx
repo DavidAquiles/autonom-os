@@ -6,6 +6,8 @@ import { VoiceProvider, useVoice } from './voice/VoiceContext'
 import { VoiceScreen } from './voice/VoiceScreen'
 import { Hoy } from './routes/finanzas/Hoy'
 import { Mes } from './routes/finanzas/Mes'
+import { Historial } from './routes/finanzas/Historial'
+import { GastoDetalle } from './routes/finanzas/GastoDetalle'
 import { Analisis } from './routes/finanzas/Analisis'
 import { Ajustes, EditarNombre } from './routes/finanzas/Ajustes'
 import { EditarGasto, NuevoGasto } from './routes/finanzas/GastoForm'
@@ -43,13 +45,18 @@ function Shell() {
       <Route element={<FinanzasTabs />}>
         <Route path="/finanzas" element={<Hoy />} />
         <Route path="/finanzas/mes" element={<Mes />} />
+        <Route path="/finanzas/historial" element={<Historial />} />
         <Route path="/finanzas/analisis" element={<Analisis />} />
       </Route>
 
       <Route path="/finanzas/ajustes" element={<Ajustes />} />
       <Route path="/finanzas/ajustes/:kind/:id" element={<EditarNombre />} />
       <Route path="/finanzas/gasto/nuevo" element={<NuevoGasto />} />
-      <Route path="/finanzas/gasto/:id" element={<EditarGasto />} />
+      {/* KD-23 / B1: the detail takes the existing route and the form moves
+          under it, mirroring /diario/:id and /diario/:id/editar (A25). Every
+          list already links to /finanzas/gasto/:id, so no row changes. */}
+      <Route path="/finanzas/gasto/:id" element={<GastoDetalle />} />
+      <Route path="/finanzas/gasto/:id/editar" element={<EditarGasto />} />
 
       <Route element={<DiarioTabs />}>
         <Route path="/diario" element={<DiarioTodo />} />
@@ -81,8 +88,13 @@ function FinanzasTabs() {
           <AppBar module={nav.finanzas} action={{ label: ajustes.titulo, to: '/finanzas/ajustes' }} />
           <Tabs
             items={[
+              // A23 / 16.1: the three views of the record sit together and
+              // Análisis, which is derived rather than recorded, stays last.
+              // Constraint 29: all four legible at 390 px, measured not
+              // eyeballed — 278.7 px of labels with 70.3 px of slack.
               { label: tabs.hoy, to: '/finanzas', end: true },
               { label: tabs.mes, to: '/finanzas/mes' },
+              { label: tabs.historial, to: '/finanzas/historial' },
               { label: tabs.analisis, to: '/finanzas/analisis' },
             ]}
           />

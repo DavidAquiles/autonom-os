@@ -1,7 +1,9 @@
+import { useRef } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { CloseIcon, MicIcon, PlusIcon } from '../ui/Icon'
 import { capture as captureCopy, nav as navCopy } from '../../copy/es'
 import { useVoice } from '../../voice/VoiceContext'
+import { useScrollMemory } from './useScrollMemory'
 import s from './Screen.module.css'
 
 export type CaptureModule = 'finanzas' | 'diario' | null
@@ -24,10 +26,20 @@ export function Screen({
   children: React.ReactNode
   scroll?: boolean
 }) {
+  // 17.8 / R1: this element, not the document, is what scrolls — so this is the
+  // one place the offset can be captured and restored for all three lists.
+  const main = useRef<HTMLElement>(null)
+  useScrollMemory(main)
   return (
     <div className={s.app}>
       {header}
-      {scroll ? <main className={s.scroll}>{children}</main> : children}
+      {scroll ? (
+        <main ref={main} className={s.scroll}>
+          {children}
+        </main>
+      ) : (
+        children
+      )}
       {capture && <CaptureBar module={capture} />}
       <BottomNav active={active} />
     </div>

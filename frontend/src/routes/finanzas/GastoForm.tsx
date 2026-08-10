@@ -61,6 +61,29 @@ function GastoForm({ mode, expenseId }: { mode: 'nuevo' | 'editar'; expenseId?: 
   const navigate = useNavigate()
   const location = useLocation()
   const voice = (location.state as { voice?: VoiceState } | null)?.voice ?? null
+  // 17.9: the list this expense was opened from — pathname AND search, so the
+  // delete path does not drop the month and the selection that B2 exists to
+  // preserve. A hint with a fallback, never a data source.
+  const desde = (location.state as { desde?: string } | null)?.desde ?? '/finanzas'
+
+  /*
+   * 17.7: BOTH ways of leaving the edit form are the same POP back to the
+   * detail — this is where the journal's pattern must not be copied literally.
+   * `Entrada.tsx:131` REPLACES on save, which the journal survives because its
+   * read screen closes to a fixed path; this detail cannot, because only the
+   * previous location entry carries `?mes=`, `?categoria=` and the recorded
+   * scroll offset (17.8). Replacing here would leave a duplicate detail entry,
+   * so the next close would land on the detail already on screen.
+   *
+   * `location.key === 'default'` is the session's first entry — i.e. a
+   * hand-typed `…/editar` URL, which no affordance in the app produces. There
+   * is nothing to pop, so the detail is reached directly instead.
+   */
+  const canPop = location.key !== 'default'
+  const backToDetalle = () => {
+    if (canPop) navigate(-1)
+    else navigate(`/finanzas/gasto/${expenseId}`, { replace: true })
+  }
 
   const health = useHealth()
   const today = health.data?.server_time.slice(0, 10)
@@ -189,10 +212,9 @@ function GastoForm({ mode, expenseId }: { mode: 'nuevo' | 'editar'; expenseId?: 
         { onSuccess: () => navigate('/finanzas', { replace: true }), onError },
       )
     } else if (expenseId) {
-      update.mutate(
-        { id: expenseId, patch: payload },
-        { onSuccess: () => navigate('/finanzas', { replace: true }), onError },
-      )
+      // 17.7: back to this expense's detail, showing the values now stored —
+      // `useUpdateExpense` invalidates the shared `keys.expense(id)` (KD-27).
+      update.mutate({ id: expenseId, patch: payload }, { onSuccess: backToDetalle, onError })
     }
   }
 
@@ -211,7 +233,18 @@ function GastoForm({ mode, expenseId }: { mode: 'nuevo' | 'editar'; expenseId?: 
   const methodMissing = draft?.resolved_by.payment_method === 'none' && methodId === null
 
   return (
-    <Screen header={<FormBar title={title} back="/finanzas" />} capture={null} active="finanzas">
+    <Screen
+      header={
+        <FormBar
+          title={title}
+          // `nuevo` is untouched. `editar` pops to the detail it was opened
+          // from — see backToDetalle above (17.7).
+          back={mode === 'editar' ? (canPop ? -1 : `/finanzas/gasto/${expenseId}`) : '/finanzas'}
+        />
+      }
+      capture={null}
+      active="finanzas"
+    >
       <form onSubmit={onSubmit} noValidate>
         {saveFailed && (
           <Banner
@@ -429,7 +462,10 @@ function GastoForm({ mode, expenseId }: { mode: 'nuevo' | 'editar'; expenseId?: 
                 disabled={remove.isPending}
                 onClick={() =>
                   remove.mutate(existing.data!.id, {
-                    onSuccess: () => navigate('/finanzas', { replace: true }),
+                    // 17.9: never leave the user on the detail of a record that
+                    // no longer exists — replace straight to the list this
+                    // expense was opened from, with its month and selection.
+                    onSuccess: () => navigate(desde, { replace: true }),
                   })
                 }
               >

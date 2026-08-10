@@ -121,6 +121,14 @@
   outline-offset: 2px;
 }
 .text:disabled {
+  /* `.text:hover` above sets a background this rule did not reset, so a
+     disabled text button still washed violet under the pointer — it read as
+     available. No shipped screen disabled a text button, so it never bit; the
+     in-flight "Ver gastos más antiguos" (16.7, constraint 32) is the first.
+     Found in Phase 1 by forcing :hover on the mockup and looking at the render,
+     not by reading the CSS. Later than `.text:hover` and of equal specificity,
+     so source order is what makes it win. */
+  background: none;
   color: var(--ink-soft);
   cursor: not-allowed;
 }

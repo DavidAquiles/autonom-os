@@ -11,10 +11,18 @@ export interface Call {
   body: unknown
 }
 
-export function installApi(overrides: Record<string, unknown> = {}) {
+/**
+ * A route is a payload, or a function of the request when one path has to
+ * answer differently per query string — `GET /api/expenses` is keyed on the
+ * bare path, so keyset paging (16.7, 16.8) needs the `before_id` cursor to
+ * change the answer. Still contract-shaped; still not a hand-rolled mock.
+ */
+export type Route = unknown | ((req: { path: string; method: string; body: unknown }) => unknown)
+
+export function installApi(overrides: Record<string, Route> = {}) {
   const calls: Call[] = []
 
-  const routes: Record<string, unknown> = {
+  const routes: Record<string, Route> = {
     'GET /api/health': {
       status: 'ok',
       server_time: '2026-08-05T19:47:11.000-05:00',
@@ -51,6 +59,11 @@ export function installApi(overrides: Record<string, unknown> = {}) {
       expense_count: 0,
       items: [],
     },
+    // One entry covers every parameter combination: the stub keys off the bare
+    // path (`:79`), so `?order=registered`, `?month=&category_id=` and a
+    // `?before_id=` page all resolve here. `next_before_id` is null, which is
+    // the contract's "everything is shown" (16.9).
+    'GET /api/expenses': { items: [], total_count: 0, next_before_id: null },
     'POST /api/expenses': {
       id: 1,
       amount_cop: 14000,
@@ -71,12 +84,10 @@ export function installApi(overrides: Record<string, unknown> = {}) {
     const path = url.startsWith('http') ? new URL(url).pathname + new URL(url).search : url
     const method = init?.method ?? 'GET'
     const bare = path.split('?')[0]
-    calls.push({
-      method,
-      path,
-      body: init?.body && typeof init.body === 'string' ? JSON.parse(init.body) : undefined,
-    })
-    const payload = routes[`${method} ${bare}`]
+    const body = init?.body && typeof init.body === 'string' ? JSON.parse(init.body) : undefined
+    calls.push({ method, path, body })
+    const route = routes[`${method} ${bare}`]
+    const payload = typeof route === 'function' ? route({ path, method, body }) : route
     if (payload === undefined) {
       return new Response(
         JSON.stringify({ error: { code: 'not_found', message: `no stub for ${method} ${bare}` } }),

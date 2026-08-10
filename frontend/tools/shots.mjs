@@ -77,6 +77,73 @@ const EMPTY_MONTH = {
   by_payment_method: [],
 }
 
+/* --- Run 02: Historial, the expense detail, the opened category --- */
+
+const expense = (over = {}) => ({
+  id: 1,
+  amount_cop: 23500,
+  category_id: 1,
+  category_name: 'Comida',
+  payment_method_id: 1,
+  payment_method_name: 'Efectivo',
+  spent_on: '2026-08-05',
+  description: 'Almuerzo con Ana en el italiano de la 85',
+  created_at: '2026-08-05T13:05:00.000-05:00',
+  updated_at: '2026-08-05T13:05:00.000-05:00',
+  ...over,
+})
+
+/*
+ * Constraint 32 requires the show-more control's two states to be
+ * "distinguishable on sight", so both must be photographed — and whichever the
+ * live data CANNOT produce is the one to stub. Checked rather than assumed:
+ * tools/seed.mjs writes 12 expenses (4 for today, 8 for the month) against a
+ * page size of 30, so a live Historial is one short page with
+ * `next_before_id: null` and NO control. The live matrix therefore carries the
+ * ABSENT half, and the PRESENT half is stubbed here.
+ *
+ * If the seeder ever grows past a page the live shot flips to the other state
+ * and the absent half is the one that needs stubbing instead.
+ */
+const HISTORIAL_HAY_MAS = {
+  items: [
+    ['Transporte', 18000, '2026-08-05', 'Tarjeta de crédito'],
+    ['Mercado', 150000, '2026-08-02', 'Tarjeta débito'],
+    ['Comida', 23500, '2026-08-05', 'Efectivo'],
+    ['Comida', 9000, '2026-08-04', 'Nequi'],
+    ['Servicios', 62000, '2026-08-01', 'Transferencia'],
+    ['Transporte', 12000, '2026-08-05', 'Efectivo'],
+    ['Hogar', 340000, '2026-07-28', 'Tarjeta de crédito'],
+    ['Comida', 7500, '2026-08-03', 'Efectivo'],
+    ['Salud', 86000, '2026-07-30', 'Tarjeta débito'],
+    ['Ocio', 21000, '2026-08-02', 'Nequi'],
+    ['Mercado', 15400, '2026-08-03', 'Efectivo'],
+    ['Comida', 4800, '2026-08-01', 'Efectivo'],
+    ['Ropa', 54000, '2026-07-26', 'Tarjeta de crédito'],
+  ].map(([category_name, amount_cop, spent_on, payment_method_name], i) =>
+    expense({
+      id: 400 - i,
+      amount_cop,
+      category_name,
+      spent_on,
+      payment_method_name,
+      description: null,
+    }),
+  ),
+  total_count: 431,
+  next_before_id: 387,
+}
+
+const HISTORIAL_VACIO = { items: [], total_count: 0, next_before_id: null }
+
+const LARGA =
+  'Mercado grande del mes en la plaza de Paloquemao, con Ana. Fuimos temprano porque después se ' +
+  'llena y los precios de la fruta suben. Llevamos la papa criolla, la yuca, el plátano, tres kilos ' +
+  'de naranja para el jugo de la semana, el tomate de árbol, cilantro, cebolla larga y una libra de ' +
+  'queso campesino del puesto del fondo, que es el que sirve. También pagamos el domicilio hasta la ' +
+  'casa porque no cabía en el carro y salía más caro pedir un taxi. Anoto todo junto en un solo ' +
+  'gasto porque fue un solo pago con la tarjeta; si lo separo después no me acuerdo de qué era cada cosa.'
+
 /* ------------------------------------------------------------------- shots */
 
 const SHOTS = [
@@ -130,6 +197,227 @@ const SHOTS = [
     force: [['button[aria-label="Mes siguiente"]', ['hover']]],
   },
   { name: 'finanzas-mes-vacio', url: '/finanzas/mes', stubs: { '/api/summary/month': EMPTY_MONTH } },
+
+  /* --- Run 02: the month opened by category (18.1-18.5, constraints 39-42) --- */
+  {
+    // Constraint 39: the boundary between a tappable category row and an inert
+    // payment-method row, in one frame.
+    name: 'finanzas-mes--frontera',
+    url: '/finanzas/mes',
+    scroll: 320,
+  },
+  {
+    name: 'finanzas-mes--categoria-hover',
+    url: '/finanzas/mes',
+    force: [['ul li button', ['hover']]],
+  },
+  {
+    name: 'finanzas-mes--categoria-foco',
+    url: '/finanzas/mes',
+    force: [['ul li button', ['focus', 'focus-visible']]],
+  },
+  {
+    name: 'finanzas-mes--categoria-pulsada',
+    url: '/finanzas/mes',
+    force: [['ul li button', ['hover', 'active']]],
+  },
+  {
+    // Constraint 40 (both totals distinguishable) and 41 (the way to close it
+    // visible without scrolling).
+    name: 'finanzas-mes--categoria',
+    url: '/finanzas/mes?categoria=2',
+  },
+  {
+    name: 'finanzas-mes--cerrar-hover',
+    url: '/finanzas/mes?categoria=2',
+    forceText: [['Cerrar', ['hover']]],
+  },
+  {
+    name: 'finanzas-mes--cerrar-foco',
+    url: '/finanzas/mes?categoria=2',
+    forceText: [['Cerrar', ['focus', 'focus-visible']]],
+  },
+  {
+    // 18.10 / constraint 42. OQ3: no total and no count in the band — a zero
+    // row is exactly what 18.10 forbids.
+    name: 'finanzas-mes--categoria-vacia',
+    url: '/finanzas/mes?categoria=8',
+    stubs: { '/api/expenses': { items: [], total_count: 0, next_before_id: null } },
+  },
+
+  /* --- Run 02: Historial (16.x, constraints 29-34, 42) --- */
+  {
+    // Carries constraint 29 (four tabs, no truncation), 30 (row treatment,
+    // against finanzas-hoy), 31 (the ordering statement above the first row),
+    // 33 (flat), 34 (nothing else operable) — and constraint 32's ABSENT half,
+    // because 12 seeded expenses fit in one page of 30.
+    name: 'finanzas-historial',
+    url: '/finanzas/historial',
+  },
+  {
+    // Where a date heading or a day separator would show up if one crept in.
+    name: 'finanzas-historial--desplazado',
+    url: '/finanzas/historial',
+    scroll: 520,
+  },
+  {
+    name: 'finanzas-historial--fila-hover',
+    url: '/finanzas/historial',
+    force: [['ul li a', ['hover']]],
+  },
+  {
+    name: 'finanzas-historial--fila-foco',
+    url: '/finanzas/historial',
+    force: [['ul li a', ['focus', 'focus-visible']]],
+  },
+  {
+    name: 'finanzas-historial--pestana-foco',
+    url: '/finanzas/historial',
+    force: [['a[href="/finanzas/historial"]', ['focus', 'focus-visible']]],
+  },
+  {
+    // Constraint 32, PRESENT half. Stubbed because the live seed cannot make it.
+    name: 'finanzas-historial--ver-mas',
+    url: '/finanzas/historial',
+    stubs: { '/api/expenses': HISTORIAL_HAY_MAS },
+    scroll: 2000,
+  },
+  {
+    name: 'finanzas-historial--ver-mas-hover',
+    url: '/finanzas/historial',
+    stubs: { '/api/expenses': HISTORIAL_HAY_MAS },
+    scroll: 2000,
+    forceText: [['Ver gastos más antiguos', ['hover']]],
+  },
+  {
+    name: 'finanzas-historial--ver-mas-foco',
+    url: '/finanzas/historial',
+    stubs: { '/api/expenses': HISTORIAL_HAY_MAS },
+    scroll: 2000,
+    forceText: [['Ver gastos más antiguos', ['focus', 'focus-visible']]],
+  },
+  {
+    name: 'finanzas-historial--ver-mas-pulsado',
+    url: '/finanzas/historial',
+    stubs: { '/api/expenses': HISTORIAL_HAY_MAS },
+    scroll: 2000,
+    forceText: [['Ver gastos más antiguos', ['hover', 'active']]],
+  },
+  {
+    /*
+     * Constraint 32's in-flight case, and the ONLY shot that exercises the
+     * Button.module.css `.text:disabled` fix. Against a stub the fetch resolves
+     * in microseconds, so the state is set on the real control instead — the
+     * same two things the component itself sets while `isFetchingNextPage`.
+     * The control stays in place and greys; it must NOT wash violet under the
+     * pointer, which is precisely what it did before the fix.
+     */
+    name: 'finanzas-historial--ver-mas-en-curso',
+    url: '/finanzas/historial',
+    stubs: { '/api/expenses': HISTORIAL_HAY_MAS },
+    scroll: 2000,
+    before: [
+      {
+        eval: `(() => {
+          const b = [...document.querySelectorAll('button')]
+            .find((x) => x.textContent.trim() === 'Ver gastos más antiguos')
+          if (!b) return false
+          b.disabled = true
+          b.textContent = 'Cargando…'
+          return true
+        })()`,
+      },
+    ],
+    forceText: [['Cargando…', ['hover']]],
+  },
+  {
+    name: 'finanzas-historial--pestana-hover',
+    url: '/finanzas/historial',
+    force: [['a[href="/finanzas/historial"]', ['hover']]],
+  },
+  {
+    name: 'finanzas-historial--pestana-pulsada',
+    url: '/finanzas/historial',
+    force: [['a[href="/finanzas/mes"]', ['hover', 'active']]],
+  },
+  {
+    // 16.10 / constraint 42: distinct from the shot above — no rows at all,
+    // versus rows with nothing after them.
+    name: 'finanzas-historial-vacio',
+    url: '/finanzas/historial',
+    stubs: { '/api/expenses': HISTORIAL_VACIO },
+  },
+
+  /* --- Run 02: the expense detail (17.x, constraints 35-38, 43) --- */
+  {
+    // Constraints 35 (no form), 36 (the journal read frame), 37 (two labelled
+    // dates), 43 (nothing reveals how it was captured).
+    name: 'gasto-detalle',
+    url: '/finanzas/gasto/1',
+  },
+  {
+    name: 'gasto-detalle--editar-hover',
+    url: '/finanzas/gasto/1',
+    forceText: [['Editar gasto', ['hover']]],
+  },
+  {
+    name: 'gasto-detalle--editar-foco',
+    url: '/finanzas/gasto/1',
+    forceText: [['Editar gasto', ['focus', 'focus-visible']]],
+  },
+  {
+    name: 'gasto-detalle--editar-pulsado',
+    url: '/finanzas/gasto/1',
+    forceText: [['Editar gasto', ['hover', 'active']]],
+  },
+  {
+    name: 'gasto-detalle--cerrar-foco',
+    url: '/finanzas/gasto/1',
+    force: [['button[aria-label="Cerrar"]', ['focus', 'focus-visible']]],
+  },
+  {
+    // 17.3: omitted entirely, not a dash and not a placeholder.
+    name: 'gasto-detalle--sin-descripcion',
+    url: '/finanzas/gasto/1',
+    stubs: { '/api/expenses/1': expense({ description: null }) },
+  },
+  {
+    // 17.5 / constraint 38: the same ink, the same size, the same block as
+    // "Anotado el…". No red, no icon, no badge.
+    name: 'gasto-detalle--editado',
+    url: '/finanzas/gasto/1',
+    stubs: { '/api/expenses/1': expense({ updated_at: '2026-08-07T09:20:00.000-05:00' }) },
+  },
+  {
+    // Without this NOTHING in the matrix can fail constraint 37's "shown in
+    // full, unclamped": the live shot runs against seed.mjs's "Café y pan" and
+    // the --sin-descripcion stub has none at all, so a line-clamp or a
+    // "seguir leyendo" would be invisible in every capture.
+    name: 'gasto-detalle--descripcion-larga',
+    url: '/finanzas/gasto/1',
+    stubs: {
+      '/api/expenses/1': expense({
+        amount_cop: 150000,
+        category_name: 'Mercado',
+        payment_method_name: 'Tarjeta débito',
+        spent_on: '2026-08-02',
+        description: LARGA,
+      }),
+    },
+  },
+  {
+    name: 'gasto-detalle--no-existe',
+    url: '/finanzas/gasto/999',
+    // main.tsx sets `retry: 1`, so a 404 settles about a second after load and
+    // shows "Cargando…" until it does. Same wait the unreachable shots use.
+    before: [{ wait: 2500 }],
+    stubs: {
+      '/api/expenses/999': {
+        status: 404,
+        body: { error: { code: 'not_found', message: 'expense 999' } },
+      },
+    },
+  },
 
   /* --- the expense form: the four-interaction budget --- */
   { name: 'gasto-nuevo', url: '/finanzas/gasto/nuevo' },
@@ -207,21 +495,29 @@ const SHOTS = [
       { wait: 500 },
     ],
   },
-  { name: 'gasto-editar', url: '/finanzas/gasto/1', scroll: 900 },
+  /*
+   * KD-23 moved the form: /finanzas/gasto/1 now renders the READ-ONLY detail,
+   * which by constraint 35 and A31 has no delete control. Left unrepointed,
+   * gasto-editar.png would silently become a picture of the detail while still
+   * being reviewed as the form — B1 regressing in the very artefact meant to
+   * prove it did not — and the three delete recipes would throw. One failure
+   * loud, one silent; the silent one is the problem.
+   */
+  { name: 'gasto-editar', url: '/finanzas/gasto/1/editar', scroll: 900 },
   {
     name: 'gasto-eliminar',
-    url: '/finanzas/gasto/1',
+    url: '/finanzas/gasto/1/editar',
     before: [{ wait: 400 }, { clickText: 'Eliminar gasto' }],
   },
   {
     name: 'gasto-eliminar--boton-pulsado',
-    url: '/finanzas/gasto/1',
+    url: '/finanzas/gasto/1/editar',
     before: [{ wait: 400 }, { clickText: 'Eliminar gasto' }],
     force: [['[role="dialog"] button', ['hover', 'active']]],
   },
   {
     name: 'gasto-eliminar--boton-hover',
-    url: '/finanzas/gasto/1',
+    url: '/finanzas/gasto/1/editar',
     before: [{ wait: 400 }, { clickText: 'Eliminar gasto' }],
     force: [['[role="dialog"] button', ['hover']]],
   },
@@ -581,6 +877,12 @@ const SHOTS = [
   { name: 'gasto-nuevo--320', url: '/finanzas/gasto/nuevo', width: 320 },
   { name: 'gasto-nuevo--360', url: '/finanzas/gasto/nuevo', width: 360 },
   { name: 'diario--320', url: '/diario', width: 320 },
+  // The four-tab strip is this run's most likely overflow; the audit's OVERFLOW
+  // flag is what catches it (constraint 29).
+  { name: 'finanzas-historial--320', url: '/finanzas/historial', width: 320 },
+  { name: 'finanzas-historial--360', url: '/finanzas/historial', width: 360 },
+  { name: 'finanzas-mes--categoria-320', url: '/finanzas/mes?categoria=2', width: 320 },
+  { name: 'gasto-detalle--320', url: '/finanzas/gasto/1', width: 320 },
   {
     // The armed address is the longest unbreakable string on any screen.
     name: 'sin-servidor--320',
@@ -876,6 +1178,15 @@ async function applyStubs(browser, sessionId, send, shot) {
 
 async function runAction(send, action) {
   if (action.wait) return sleep(action.wait)
+  // Sets a state on a real element that the live server resolves too fast to
+  // photograph — the same idea as CSS.forcePseudoState, for a state carried by
+  // an attribute rather than a pseudo-class. The element, its classes and its
+  // stylesheet are the real ones.
+  if (action.eval) {
+    const ok = await evaluate(send, action.eval)
+    if (!ok) throw new Error('eval action returned falsy')
+    return sleep(160)
+  }
   if (action.clickText) {
     const ok = await evaluate(
       send,

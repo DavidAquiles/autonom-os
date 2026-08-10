@@ -1,4 +1,5 @@
 import {
+  useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
@@ -10,6 +11,7 @@ import type {
   CategorySuggestion,
   DaySummary,
   Expense,
+  ExpenseList,
   Health,
   InsightJob,
   JobAccepted,
@@ -29,6 +31,13 @@ export const keys = {
   day: (date?: string) => ['summary', 'day', date ?? 'hoy'] as const,
   month: (month?: string) => ['summary', 'month', month ?? 'actual'] as const,
   expense: (id: number) => ['expense', id] as const,
+  // KD-25: the prefix is `expense-list`, NOT `expenses`. TanStack matches keys
+  // by prefix element-by-element, so `['expenses', …]` would differ from the
+  // existing `['expense', id]` by one character and match nothing it does not
+  // intend to — correct, and exactly why it is dangerous to read. A visibly
+  // different prefix removes the near-miss; both entries live in
+  // `invalidateExpenseViews` and neither implies the other.
+  expenseList: (...scope: (string | number | null)[]) => ['expense-list', ...scope] as const,
   journal: (date?: string) => ['journal', date ?? 'todo'] as const,
   journalEntry: (id: number) => ['journal', 'entry', id] as const,
   summaryLatest: ['insights', 'summary', 'latest'] as const,
@@ -42,6 +51,10 @@ export const keys = {
 function invalidateExpenseViews(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: ['summary'] })
   qc.invalidateQueries({ queryKey: ['expense'] })
+  // KD-25: `['expense']` does NOT match `['expense-list', …]`. Without this line
+  // a deleted expense lingers in Historial (16.11) and a category's list never
+  // goes empty (18.10) until a manual refresh.
+  qc.invalidateQueries({ queryKey: ['expense-list'] })
 }
 
 /* ------------------------------------------------------------ reachability */
@@ -152,6 +165,48 @@ export function useExpense(id: number | null) {
     queryKey: keys.expense(id ?? -1),
     queryFn: () => api.get<Expense>(`/expenses/${id}`),
     enabled: id !== null,
+  })
+}
+
+/** Deferred 1: 30 rows is roughly three screenfuls at 390×844 (16.13). */
+export const HISTORIAL_PAGE = 30
+
+/**
+ * Historial (16.2, 16.7-16.9). KD-20: keyset paging on `before_id`, never
+ * offset — an expense captured or deleted mid-scroll would make offset paging
+ * repeat or skip a row. KD-25: the pages live in the query cache, so returning
+ * from an expense's detail re-renders the list at full length instead of
+ * collapsing to page one (17.8).
+ */
+export function useHistorial() {
+  return useInfiniteQuery({
+    queryKey: keys.expenseList('registrados'),
+    queryFn: ({ pageParam }) =>
+      api.get<ExpenseList>(
+        `/expenses${qs({
+          order: 'registered',
+          limit: HISTORIAL_PAGE,
+          before_id: pageParam ?? undefined,
+        })}`,
+      ),
+    initialPageParam: null as number | null,
+    // `next_before_id === null` is the contract's "everything is shown", so
+    // `hasNextPage` is exactly 16.9's condition with no extra state.
+    getNextPageParam: (last) => last.next_before_id,
+  })
+}
+
+/**
+ * One category inside one month (18.2, 18.13). Ordered by the date each expense
+ * is dated for — deliberately not Historial's order (A37, R6). KD-21: not
+ * paged; `total_count` is what 18.3 counts, and it ignores `limit` (R4).
+ */
+export function useCategoryExpenses(month: string | undefined, categoryId: number | null) {
+  return useQuery({
+    queryKey: keys.expenseList('mes', month ?? 'actual', categoryId),
+    queryFn: () =>
+      api.get<ExpenseList>(`/expenses${qs({ month, category_id: categoryId ?? undefined })}`),
+    enabled: month !== undefined && categoryId !== null,
   })
 }
 

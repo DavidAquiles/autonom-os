@@ -167,13 +167,18 @@
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
 }
+/* Declared block because the tappable category row (below) carries these as
+   spans inside a <button>, whose content model is phrasing content. An inline
+   box would drop the height and the bar would vanish. */
 .track {
+  display: block;
   margin-top: 9px;
   height: 7px;
   border-radius: 4px;
   background: var(--paper-sunk);
 }
 .fill {
+  display: block;
   height: 7px;
   border-radius: 4px;
   background: var(--t2);
@@ -199,4 +204,141 @@
   padding: 22px var(--pad);
   color: var(--ink-soft);
   font-size: 15px;
+}
+
+/* ---- Historial ----
+   16.6 / constraint 31. Same treatment as Hoy's `.when` date line, because it
+   occupies the same slot — "what am I looking at" — and is read before the
+   first row. */
+.orden {
+  padding: 22px var(--pad) 17px;
+}
+.orden p {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  letter-spacing: 0.01em;
+  line-height: 1.45;
+  max-width: 320px;
+}
+
+/* 16.7 / constraint 32: the app's existing quiet-action vocabulary, centred
+   under the last rule. A page turn, not a call to action. */
+.verMas {
+  display: flex;
+  justify-content: center;
+  padding: 12px var(--pad) 8px;
+}
+/* Out-specifies Button.module.css `.btn` (0,1,0) as a descendant pair (0,1,1),
+   so it does not depend on which stylesheet the bundler emits first. */
+.verMas button {
+  width: auto;
+  padding: 0 22px;
+}
+
+/* ---- the month breakdown, opened by category ----
+   18.1 / constraint 39. The app already distinguishes tappable from static by
+   where the hairline runs: `.row` above is full-bleed and washes on press,
+   `.brk` and `.pm` are inset and inert. Category rows move to the full-bleed
+   side of that existing grammar and gain the violet chevron; the payment-method
+   rows keep today's inset rule and gain nothing, so the difference is legible
+   without touching either. Never colour alone: rule, chevron and wash. */
+.brkTap {
+  border-top: 1px solid var(--rule);
+}
+.catrow {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px var(--pad) 13px;
+  border-bottom: 1px solid var(--rule);
+}
+.chev {
+  flex: none;
+  color: var(--violet);
+  display: inline-flex;
+  align-self: center;
+  margin-left: -2px;
+}
+.catrow:hover {
+  background: var(--violet-wash);
+}
+.catrow:active {
+  background: var(--violet-wash2);
+}
+.catrow:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: -2.5px;
+  background: var(--violet-wash);
+}
+
+/* 18.3-18.5 / constraints 40, 41: one recessed full-bleed band — the lid lifted
+   on a number already on screen. --paper-sunk is the app's existing recessed
+   surface (the bar track, the disabled fill), so no new colour and no new shape
+   language; it is square, full-bleed and carries no icon, so it cannot be read
+   as a `.banner`. The month's own total stays above it, untouched. */
+.opened {
+  background: var(--paper-sunk);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  padding: 15px var(--pad) 17px;
+}
+.openedHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.openedName {
+  flex: 1;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  min-width: 0;
+}
+/* 18.5 / constraint 41: on screen without scrolling, worded as closing a
+   category rather than as clearing a filter. */
+.cerrar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--violet);
+}
+.cerrar:hover {
+  color: var(--violet-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cerrar:active {
+  color: var(--violet-deep);
+}
+.cerrar:focus-visible {
+  outline: 2.5px solid var(--violet);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+/* Constraint 40: the category's total differs from the month's on four axes —
+   position, label, weight and size (40 px/300 in the hero above, 22 px/700
+   here) — where the constraint asks for three. */
+.figures {
+  margin-top: 2px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.categoryTotal {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+.categoryCount {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
 }

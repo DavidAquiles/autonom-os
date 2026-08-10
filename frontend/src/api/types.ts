@@ -90,6 +90,19 @@ export interface Expense {
   updated_at: string
 }
 
+/**
+ * `GET /api/expenses`. `next_before_id` is an int only when `order=registered`
+ * and an older row exists beyond this page; `null` is the single, unambiguous
+ * "everything is shown" signal 16.9 renders against, and it is always `null`
+ * for `order=spent`. `total_count` ignores `before_id`, `limit` and `offset`,
+ * which is what makes it the count 18.3 shows.
+ */
+export interface ExpenseList {
+  items: Expense[]
+  total_count: number
+  next_before_id: number | null
+}
+
 export interface DaySummary {
   date: string
   total_cop: number

@@ -1,0 +1,89 @@
+/*
+ * One expense given the whole screen — a small receipt, not a form with the
+ * inputs switched off (constraint 35). There is deliberately no uppercase label
+ * above a bordered box anywhere: that is what this app's forms look like.
+ *
+ * Nothing here reaches for the red family and nothing may: constraint 38
+ * requires the edited-since mark to be neutral, and estilos.test.ts:62-74
+ * allows red in three named modules only. (The rule is a source scan, so even
+ * naming the token in a comment fails it — which is the check working.)
+ */
+
+.receipt {
+  padding: 24px var(--pad) 0;
+}
+
+/* The amount takes Hoy's hero treatment: it is the headline of the record. */
+.amount {
+  font-size: 46px;
+  font-weight: 300;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+.category {
+  margin-top: 9px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* 17.2 / constraint 37: shown whole. No line-clamp, no line limit, no
+   "seguir leyendo" — and nothing here may grow one. */
+.description {
+  margin-top: 15px;
+  font-size: 16.5px;
+  line-height: 1.66;
+  overflow-wrap: break-word;
+}
+
+/* The record's own facts, in the hairline-ruled label/value run Análisis
+   already uses, at a roomier rhythm. */
+.facts {
+  margin-top: 26px;
+  border-top: 1px solid var(--rule);
+}
+.facts li {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.factName {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.factValue {
+  font-size: 16px;
+  font-weight: 700;
+  text-align: right;
+}
+
+/* 17.4 / constraint 37: the recorded moment is a footnote ABOUT the record and
+   sits below the rule, well away from the dated-for date, which is a fact about
+   the money. The two can never read as one value or a range because they are
+   not adjacent rows in one list — that arrangement is precisely what invites it.
+   17.5 / constraint 38: the edited line is the same ink, the same size and the
+   same block as "Anotado el…". A fact, not a warning: no red, no icon, no
+   badge, no border. */
+.stamp {
+  padding: 19px var(--pad) 0;
+}
+.stamp p {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.stamp p + p {
+  margin-top: 4px;
+}
+
+/* 17.6: exactly one control that touches the expense. Deleting stays inside the
+   edit form, where it lives today, with its existing confirmation (A31). */
+.foot {
+  padding: 26px var(--pad) 24px;
+}
