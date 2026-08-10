@@ -266,3 +266,66 @@ I compared artifacts to each other: spec against design, visual direction agains
 ---
 
 **Verdict: CONCERNS.** Counts: **35 covered · 2 partial · 0 uncovered** of 37 acceptance criteria (100% claimed by at least one design element); **14 covered · 1 partial · 0 uncovered** of Design Constraints 29–43. 13 findings — 3 HIGH, 4 MEDIUM, 5 LOW, 1 informational — of which 9 route to **architect**, 1 to **pm**, and 2 to the **human** at the gate. No acceptance criterion is covered by nothing, no non-goal is breached, and no approved assumption is silently reversed, so this does not FAIL. The two partials (18.2's 200-row cap against a criterion that says "every"; 17.8's scroll restoration specified for one of the three lists it names) and the four screenshot recipes pointing at the route KD-23 repurposes are what a human should weigh before approving.
+
+---
+
+> **PERSISTED BY THE ORCHESTRATOR (second time).** The analyst's `Write` was
+> blocked again on the re-check, and it said so explicitly. The section below is
+> its re-check report **verbatim and unedited**. Persisted 2026-08-10, same
+> analyst agent `a9d0fdfb91cd3c7da`, against `design.md` at 970 lines after the
+> Architect's revision for F1, F2, F5, F6, F7, F8, F9, F10, F12.
+
+---
+
+This is a re-check only; I did not redo the coverage tables. **My `Write` is still blocked — the text below is for you to persist** (append to `/home/david/Proyectos/Autonom-OS/factory/analyst/analysis.md` as a re-check section). I have no write access; do not read this as a role that had it.
+
+# Re-check of revised `design.md` (970 lines)
+
+## Per-finding verdicts
+
+**F1 — closed.** `tools/shots.mjs` is now in the changed-file list (`:309-312`), the Summary claim is narrowed to "no *row-level* call site changes" with the harness named as the exception (`:33-36`), all four recipes are repointed to `/finanzas/gasto/1/editar` (`:728-733`), and the visual pinning is added to the B1 test section (`:802-805`). Both factual claims check out: `shots.mjs:823,831` computes `path` from `new URL(request.url).pathname` and falls back to `shot.stubs?.[path]`, so one `'/api/expenses'` stub does serve any query string, exactly as `test/server.ts:73` does; and `shots.mjs:891` throws literally `no control labelled "${action.clickText}"`. Recipe-to-constraint coverage is complete for 29, 30, 31, 33, 34, 35, 36, 38, 39, 40, 41, 42, 43 — with two gaps at 32 and 37, below as N1/N2. `finanzas-mes--categoria` at `?categoria=1` resolves to Comida (`db/seed.py:14`, asserted at `test_misc_api.py:213`), which the seeder populates in the current month, so that recipe shows a real filtered list rather than the empty state; and `Page.navigate` takes `BASE + shot.url` (`shots.mjs:961`), so the first query-string recipe in the file works.
+
+**F2 — closed.** The Historial-scoped bullet is replaced by "Every list returns in the state it was left in" (`:479-493`), which names Hoy, Historial and the filtered month list, splits rows (cache) from offset (explicit capture/restore), and binds the offset obligation on all three in as many words — "Hoy is not exempt, and a long day's ledger scrolls… which mechanism is the implementer's (Deferred 3), that it covers all three is not". R1 is rewritten to match (`:826-837`) and directs QA at all three scrolled. This genuinely binds all three.
+
+**F3 — correctly not closed.** KD-21 (`:124-135`) and R4 (`:859-866`) are byte-identical to the prior version. The new "Still open" subsection (`:959-963`) states the conflict verbatim, including "18.2 says 'every expense of that category'" and "no way to reach the rest", and names the remedy. Not softened.
+
+**F4 — correctly not closed.** R3 (`:849-857`) is byte-identical. The "Still open" entry (`:964-967`) concedes the A30 tension rather than resting on the "17.5 states only the positive direction" defence alone. Not softened.
+
+**F5 — closed, and the Architect's fifth operable is real.** Verified against source: `ReachabilityBanner` is rendered inside `FinanzasTabs` at `App.tsx:94`, and the component at `:128-142` carries an operable `<Link to="/sin-servidor">{servidor.verQueHacer}</Link>` at `:136-138`. I missed it; the Architect is right. Its enumeration is correctly qualified as conditional ("when the server is unreachable", `:470-471`) since `:130` returns `null` while healthy. The full five are stated in both places (`:467-477`, `:940-951`), and the reading is explicitly routed to PM for ratification rather than asserted — which is the right disposition.
+
+**F6 — closed.** The push/pop table (`:516-537`) is sound. `[lista, detalle]` → push `editar` → pop returns to the existing detail entry with no duplicate, so a second pop reaches the list; the `Entrada.tsx:131` replace-on-save divergence is stated with the reason (the journal escapes it only because `Entrada.tsx:34` closes to a fixed path, which this detail cannot do). Both 17.7 branches are satisfied by the same pop, and "showing the values currently stored" holds because `useUpdateExpense`'s `onSuccess` calls `invalidateExpenseViews` (verified, `api/queries.ts:180`), which invalidates the `['expense']` prefix that `keys.expense(id)` sits under. The no-entry-to-pop fallback (`:536-537`) targets the detail path, not `…/editar`, so the B1 structural test at `:796-800` remains satisfiable.
+
+**F7 — closed.** `desde` carries pathname *and* search, with the concrete example `/finanzas/mes?mes=2026-07&categoria=3` and the reason (`:540-547`, restated `:687-692`, `:702`).
+
+**F8 — closed.** Status made explicit at `:365-373`: defined, accepted, serves no acceptance criterion, sent by no client, kept because rejecting it would cost a new validation reason outside the closed set at `errors.py:16-49`, and because it is R4's remedy. "Implementers must not build UI against it" is the line that makes it safe.
+
+**F9 — closed; the Architect's correction of my framing is right, and I accept it.** TanStack matches query keys element-wise, so `['expense']` would never have matched `['expenses', …]` — there was no false-positive-match risk, and my headline "one character from a silent bug" overstated it (my own detail line already described the mechanics correctly). The real exposure was a human reading the two prefixes as the same thing and assuming one invalidation covered both. `['expense-list', …]` is applied consistently — `:200`, `:301-304`, `:317`, `:323`, `:580`, `:880`, `:918` — with `['expenses']` surviving only in the two sentences explaining why it was rejected (`:218`, `:304`).
+
+**F10 — closed.** `estado.desde` throughout (`:522`, `:540`, `:687`, `:702`, `:706`), with the Spanish-naming rationale stated at `:545-547`.
+
+**F11 — correctly untouched**, per your routing.
+
+**F12 — closed.** New client-contract bullet at `:549-559`: pending follows `Mes.tsx:36`/`Hoy.tsx:17`'s `.skeleton` + `common.cargando`; unreachable is inherited from `FinanzasTabs`'s `ReachabilityBanner` and nothing new is built; the in-flight "ver más" must live on the control rather than become a bottom spinner, which is the one case with no precedent and the one the visual direction's "avoid" list names. Its `requirements: none` is legitimate — no criterion in 16.1–18.13 asks for a pending state, and 16.10's empty state is claimed elsewhere.
+
+## New findings
+
+### N1 — [MEDIUM] Constraint 32's *present* state is photographed by neither new recipe
+- location: `design.md:752-755`; `frontend/tools/seed.mjs:33-38` and `:51-60`; Deferred Decision 1
+- detail: the design says `finanzas-historial--ver-mas` stubs `next_before_id: null` to capture the absence, "the live shot above supplies the present state". It does not. The seeder writes 4 expenses for today plus 8 for the month — **12 rows** — against an intended page size of 30, so the live `finanzas-historial` shot returns `next_before_id: null` and renders no control. Both recipes then photograph the same half of a constraint that requires the two states to be "distinguishable on sight". The recipe named `--ver-mas` is the one capturing the absence of "ver más", which is also backwards. The stub that exists in the design's own vocabulary would fix it: give `--ver-mas` a `next_before_id` integer and let the live shot supply the null case.
+- fixed by: **architect**
+
+### N2 — [LOW] Constraint 37's "unclamped description" has no recipe that could fail
+- location: `design.md:758-763`; `seed.mjs:34` (expense 1 is "Café y pan")
+- detail: `gasto-detalle` is live against a short description and `--sin-descripcion` stubs `description: null`. Clamping, line-limiting or a "seguir leyendo" affordance only becomes visible on a long description, and no recipe supplies one. A stubbed long-description shot is the same one line as the two already listed.
+- fixed by: **architect**
+
+### N3 — [LOW] The Components heading still says "four existing files change"; the list has eight
+- location: `design.md:278` against `:292-312`
+- detail: pre-existing (it was seven before) and widened by adding `tools/shots.mjs`. Harmless except to a Reviewer counting changed files against the heading.
+- fixed by: **architect**
+
+## Other checks
+
+Coverage is unchanged at **37/37**. There are now 17 `requirements:` lines (was 16); the union is identical plus the new `requirements: none` internal entry, which is legitimately requirement-free. No criterion lost a claimant: the replaced scroll bullet still carries `16.7, 17.8, 18.9` (`:493`) and the split of "Leaving the detail and leaving the form" still carries `17.7, 17.8, 17.9` (`:548`). No scope creep in the 200 added lines — the new material is all specification of behaviour already required, plus the screenshot recipes, plus the `before_id` status paragraph, and no new endpoint, parameter, response field, route or component appears. The contract, KD-18…KD-27, the data-model section and the non-goal position are otherwise unchanged.
+
+CONCERNS
