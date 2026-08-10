@@ -301,8 +301,9 @@ Changed:
   (18.1), the selected-category panel and its list (18.2–18.5), clearing on month
   change (18.7).
 - `routes/finanzas/GastoForm.tsx` — return targets only: in `editar` mode both
-  closing and saving **pop** back to the detail (17.7), and deleting replaces to
-  `estado.desde`, never the dead detail (17.9). `nuevo` mode is untouched.
+  closing and saving **pop** back to the detail (17.7), and deleting **pops twice**
+  — past the form and past the detail — landing on the list and never on the dead
+  detail (17.9). `nuevo` mode is untouched.
 - `api/queries.ts` — `keys.expenseList(...)`, the list hooks (naming otherwise the
   implementer's, matching the `useThing` habit), and the new key prefix added to
   `invalidateExpenseViews` (`:42-45`). **The prefix is `['expense-list', …]`, not
@@ -579,7 +580,7 @@ the whole design — same convention as
   | detail → editar | push | `[lista, detalle, editar]` |
   | editar → save **or** close without saving | **pop** | `[lista, detalle]` |
   | detail → close | **pop** | `[lista]` |
-  | editar → delete | replace, to `estado.desde` | `[lista]` |
+  | editar → delete | **pop ×2** (fallback: replace, to `estado.desde`) | `[lista]` |
 
   Closing the detail is a pop, not a navigation to a fixed path, because only the
   previous *location entry* carries `?mes=` and `?categoria=` (17.8, 18.9). And
@@ -597,9 +598,31 @@ the whole design — same convention as
   `navigate('/finanzas/gasto/:id', { replace: true })`.
 
   Deleting from within the edit form must not land on the detail of a deleted
-  record (17.9). It navigates to **`estado.desde`**, a router-state hint threaded
-  from the row that opened the detail, with `/finanzas` as the fallback.
-  **`desde` carries pathname *and* search string** — `/finanzas/mes?mes=2026-07&categoria=3`,
+  record (17.9), and **it is a two-entry pop, not a replace.** This corrects what
+  this table said before the build: a replace at `[lista, detalle, editar]` yields
+  `[lista, detalle, lista']`, which leaves the deleted expense's detail one Back
+  tap away — the stack column was right and the mechanism column was wrong, and
+  building the mechanism produces the defect. Reviewer caught the discrepancy
+  statically (F1) and QA reproduced it (D1a); the shipped code builds the stack
+  column. Popping past both the form and the detail is what actually removes them.
+
+  Two facts the table cannot carry, both load-bearing:
+
+  1. **Whether two entries exist to pop cannot be read from `location.key`.**
+     `GastoDetalle` therefore threads a `hayLista` flag in router state alongside
+     `estado.desde`. When it is false — a hand-typed `…/editar` opening a session,
+     which no affordance in the app produces — the pop has nothing to land on and
+     the **replace-to-`estado.desde` fallback stands**, with `/finanzas` as its own
+     fallback. QA verified that path lands on `/finanzas` rather than on a dead
+     detail.
+  2. **A pop cannot erase forward entries**, so the deleted expense's detail stays
+     reachable by the browser's *forward* button. The pop is therefore necessary
+     and not sufficient. What closes it is the detail screen's own behaviour: the
+     not-found state (17.11) **replaces** the record rather than rendering above it,
+     and offers no edit action — QA verified zero actions render there. A future
+     reader must not treat the navigation fix alone as covering 17.9.
+
+  **`estado.desde` carries pathname *and* search string** — `/finanzas/mes?mes=2026-07&categoria=3`,
   not `/finanzas/mes`. A pathname alone would drop the user on the current month
   with no selection, which is precisely the reset B2 and 18.9 exist to remove,
   arriving by the one route they do not govern. (The name is Spanish for the same
@@ -777,7 +800,7 @@ empty-category state (18.10) rather than an error, because the server returns
 | `Historial` | `routes/finanzas/Historial.tsx` | `useInfiniteQuery`; order statement; show-more; empty state. Reuses `Finanzas.module.css`. |
 | `GastoDetalle` | `routes/finanzas/GastoDetalle.tsx` + own CSS module | `useExpense`; `Screen`+`FormBar`; edit action; not-found state. |
 | `Mes` | `routes/finanzas/Mes.tsx` (changed) | Search params; tappable `by_category` rows; selected-category panel + list; clear control. |
-| `GastoForm` | `routes/finanzas/GastoForm.tsx` (changed) | `editar` mode only: `back` and save both **pop** to the detail; delete replaces to `estado.desde`. `nuevo` untouched. |
+| `GastoForm` | `routes/finanzas/GastoForm.tsx` (changed) | `editar` mode only: `back` and save both **pop** to the detail; delete **pops ×2** to the list, falling back to a replace to `estado.desde` when `hayLista` is false. `nuevo` untouched. |
 
 ### CSS and the red allowlist
 
