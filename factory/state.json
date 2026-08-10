@@ -4,7 +4,7 @@
   "factory_tools": "/home/david/Proyectos/software_factory/tools",
   "mode": "feature",
   "has_frontend": true,
-  "stage": "context",
+  "stage": "pm",
   "gates_passed": [],
   "index": {
     "head": null,
@@ -127,7 +127,12 @@
       "stage": "context",
       "at": "2026-08-10T18:38:16+00:00",
       "note": "stage intake -> context"
+    },
+    {
+      "stage": "pm",
+      "at": "2026-08-10T18:46:29+00:00",
+      "note": "stage context -> pm"
     }
   ],
-  "updated_at": "2026-08-10T18:38:16+00:00"
+  "updated_at": "2026-08-10T18:46:29+00:00"
 }
