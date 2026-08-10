@@ -4,7 +4,7 @@
   "factory_tools": "/home/david/Proyectos/software_factory/tools",
   "mode": "feature",
   "has_frontend": true,
-  "stage": "architect",
+  "stage": "analyze",
   "gates_passed": [
     "kickoff"
   ],
@@ -120,6 +120,11 @@
       "id": "abcf230a0b800907b",
       "status": "completed",
       "spawned_at": "2026-08-10T18:54:54+00:00"
+    },
+    "architect": {
+      "id": "ad1949da6ed3aec94",
+      "status": "completed",
+      "spawned_at": "2026-08-10T19:16:12+00:00"
     }
   },
   "baseline_revision": "418d7b3da081d4871d654a6b91615c33d0d53bcd",
@@ -155,7 +160,17 @@
       "stage": "architect",
       "at": "2026-08-10T19:05:27+00:00",
       "note": "stage pm -> architect"
+    },
+    {
+      "stage": "architect",
+      "at": "2026-08-10T19:16:12+00:00",
+      "note": "architect: completed"
+    },
+    {
+      "stage": "analyze",
+      "at": "2026-08-10T19:16:15+00:00",
+      "note": "stage architect -> analyze"
     }
   ],
-  "updated_at": "2026-08-10T19:05:27+00:00"
+  "updated_at": "2026-08-10T19:16:15+00:00"
 }
