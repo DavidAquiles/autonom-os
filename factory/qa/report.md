@@ -197,3 +197,70 @@ None fails a criterion as written. Ordered by severity.
 - **Reviewer F2** does not reproduce (Edge Case 2). Reviewer explicitly asked QA to probe it; the probe is negative four times, including the fast-switch timing the finding depends on. No fix is warranted on the evidence.
 - The **200-row cap** on the filtered category list, a **no-op save marking an expense edited**, **Diario's 50-entry cap**, **ship-as-drawn tab metrics**, **no total/count on an empty category band**, and **Historial's last page ending with no closing label** — all ruled on at a gate; I verified the last of these renders as ruled and treated none of them as findings.
 - **`test_integrity` is green**, 269 tests / 691 assertions against a 221/565 baseline; nothing was removed or weakened during this run.
+
+---
+
+> **PERSISTED BY THE ORCHESTRATOR (second time).** QA's `Write` was blocked
+> again on the re-test and it said so explicitly. The section below is QA's
+> re-test report **verbatim and unedited**, covering the frontend rework commit
+> `77d2959`. Persisted 2026-08-10, same QA agent `af7cd09e959d58743`.
+> This is the **fourth** blocked role `Write` in this project.
+
+---
+
+# QA re-test — Run 02 rework (D1, D2, D3)
+
+**Overall verdict: all three defects fixed. No new defect. 37/37 criteria still pass. Ship it.**
+
+## Verdict per defect
+
+### D1 — **fixed** (both causes)
+- **(a) navigation.** Stack `Hoy → Historial → detalle → editar`, delete: lands on `/finanzas/historial`; **one Back now goes to `/finanzas` (Hoy)** — the screen before the list — not the dead detail. The stack is `[lista]` as the design table states. `shots/r04-atras-tras-eliminar.png`.
+- **Fallback path (`hayLista` false) tested as asked.** Hand-typed `/finanzas/gasto/77/editar` as the first entry of a session, then deleted: lands on `/finanzas`, not on a dead detail, not on a blank. `shots/r06-fallback-tras-eliminar.png`.
+- **(b) the dead detail.** Reached via **forward** after a delete, `/finanzas/gasto/78` renders **only** "Este gasto ya no existe. / Puede que lo hayas borrado desde otra pantalla…". The record is gone — no amount, no category, no dates — and `main` offers **zero** actions (`[]`). The implementer's claim that the surviving forward entry is harmless is **verified**, not accepted. `shots/r05-adelante-detalle-muerto.png`.
+- **The misleading save copy is genuinely unreachable.** No affordance reaches an edit form for a deleted expense (the dead detail has no button). By hand-typed `…/editar` on a deleted id the form renders *empty* and client-side validation ("Elige una categoría", "Elige un método de pago") blocks submit, so the `PATCH` never fires: neither "no alcanzo tu servidor" nor any other save error can be produced. Verified by attempting the save. `shots/r08-guardar-borrado-por-url.png`. (That empty form under an "Editar gasto" title is URL-only and in the same family as the deferred D4/D5 — noted, not re-raised.)
+
+### D2 — **fixed**
+- Blocking `*/api/expenses*` while `/api/health` answers: the opened category now shows **"No pude cargar esta lista. / Tu servidor está respondiendo, pero esta lista no llegó. Lo que anotaste sigue guardado. / Reintentar"** instead of "ya no queda nada en Transporte". Regex check for the false claim: **false**. The month total stays above it. `shots/r11-mes-categoria-fallo-lista.png`.
+- **`?categoria=0`** lands in the same honest state — Reviewer F4's visible symptom is gone. `shots/r12-categoria-cero.png`.
+
+### D3 — **fixed**
+- Same probe on Historial: the failure state renders in place of the blank screen, with exactly one operable element, `Reintentar`. `shots/r10-historial-fallo-lista.png`.
+- **`Reintentar` works:** unblocking and tapping it repopulated the list to 30 rows with the failure state gone. `shots/r13-tras-reintentar.png`.
+- The new state uses the app's existing violet banner — no new colour, no red (constraints 2, 3 hold).
+
+### Total-outage behaviour — **unchanged and correct**
+With all `/api/*` blocked, Historial and the opened month both show Run 01's "No puedo alcanzar tu servidor." screen and **nothing else**: `No pude cargar esta lista` is absent, and the word "servidor" appears in exactly one banner. `ListFailure` staying silent works. The two states are plainly distinguishable — different copy, different screen. `shots/r14-outage-historial.png`.
+
+## Regression checks
+
+| Check | Result |
+| --- | --- |
+| **17.8 Historial** | 420 → **420** (room 1632) |
+| **17.8 Hoy** | 400 → **400** (room 463) |
+| **17.8 filtered month list** | 420 → **420** (room 458) |
+| **17.8 at depth after paging** | 60 rows, 2400 → **2400**, 60 rows still present |
+| **17.9** | Deleting from Historial leaves the user on `/finanzas/historial`; from a filtered list, on `/finanzas/mes?categoria=11`. Pass. |
+| **17.11** | Cold `/finanzas/gasto/99999`: designed Spanish message, **0 actions**, no record. Pass. `shots/r17-no-existe.png` |
+| **16.10** | Empty database → "Todavía no has anotado ningún gasto…". The failure state did **not** swallow it (regex check: false). Pass. `shots/r16-historial-vacio.png` |
+| **18.10** | Deleted Medicina's last August expense → "En agosto ya no queda nada en Medicina…", month total updated. Designed empty state intact. Pass. `shots/r15-categoria-vacia.png` |
+| **18.11** | Empty month still shows Run 01's empty state, no category selection offered. Pass. |
+| **18.9 / B2** | `/finanzas/mes?mes=2026-07&categoria=7` → detail → Back → identical screen ("julio 2026 · $22.402 · 22 gastos · Hogar · $3.039 · 3 gastos"). Pass. |
+
+**D6 — genuinely improved, not moved.** Deleting from a scrolled Historial now returns to the saved offset exactly: saved 200 → 200, 500 → 500, 800 → 800 (delta 0), against 0 before the fix. The one case that looks off is not one: saved 300 → 231 and saved 350 → 281, both exactly one row height (69 px). I measured the deleted row in the 300 case at `top = −32 px` relative to the scroll container — it straddled the top edge, so removing it shifts content above the fold and the browser's scroll anchoring keeps **the same rows on screen**. Delete a row fully below the fold at the same offsets and the delta is 0. Correct behaviour, reproducible, not a defect.
+
+## New defects introduced
+
+**None.** Nothing regressed, nothing was over-corrected, and no new copy, colour or control appeared outside the shared failure state.
+
+One note for the Architect, not a defect and not mine to decide: the implementer is right that `design.md:582`'s push/pop table now disagrees with the shipped code in its *mechanism* column ("replace, to `estado.desde`") while agreeing with its *stack* column. The code implements the stack. The table should be corrected to "pop ×2" so the next reader is not misled.
+
+## Database state left behind
+
+- **`data/autonomos.db`: 16 expenses / $267.970, md5 `f40f1c0965351565d9dccac1e6bd81b5`** — verified through the user's own server after teardown. Unchanged.
+- The user's server on **:8001 (pid 4663) is still running**, untouched. Port 8000 never bound.
+- All re-test data (65 expenses created, 8 deleted, 0 edited) lived in `data/qa-run02.db` on :8011 and `data/qa-vacio.db` on :8012; both servers are stopped and both files are deleted. `npm run shots` was not run. `git status` shows only `factory/` additions (the 14 new screenshots and the journal).
+
+## Overall verdict
+
+**PASS.** 37/37 acceptance criteria, Design Constraints 29–43, and Run 01's constraints on the touched surfaces all hold after the rework; D1, D2 and D3 are fixed, each on the first attempt; the remaining known issues are the deferred URL-only ones (D4, D5) and the gate-ruled decisions. This build is done.
