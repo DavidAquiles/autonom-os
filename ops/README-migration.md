@@ -16,6 +16,12 @@ The third row is the one that bites. `PUBLIC_URL`, `LAN_BIND_ADDR` and the LAN
 certificate all name *this* machine. Copying them produces a stack that starts
 cleanly and is unreachable.
 
+**Steps 6 and 8 have an old-host half that cannot be done from the new machine.**
+`ops/stage-migration.sh` does both in the right order — stops the API, takes the
+WAL-safe database copy, verifies it row for row, and gathers it with the mkcert
+CA into one folder to carry across. Run it when you actually move, not early: it
+cannot tell a fresh copy from a week-old one.
+
 ## 0. Before anything else: push
 
 The working tree is clean but the branch is **ahead of `origin/main`**. Until
