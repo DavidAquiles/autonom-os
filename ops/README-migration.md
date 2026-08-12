@@ -4,6 +4,12 @@ Target: a second Linux host with systemd, which **replaces** this PC. Read
 `ops/README-setup.md` first — this document only covers what is different when
 the host already exists somewhere else.
 
+> **Handing this to a coding agent instead?** Use `ops/AGENT-MIGRATION.md`. It is
+> the same move written for an agent to execute — phase gates it must verify,
+> explicit HALT points for the browser login, the router, the phone and the old
+> machine, and the specific mistakes it must not make. This document is the
+> human-readable reference behind it.
+
 Three kinds of thing move, and they move differently:
 
 | | What | How it travels |
